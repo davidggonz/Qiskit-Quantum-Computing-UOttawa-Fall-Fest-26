@@ -1,4 +1,4 @@
-"""TFIM Trotter circuit builder.  (Owner: Leader)
+"""TFIM Trotter circuit builder.  (Owner: David)
 
 Interface contract (do not change signature without telling the team):
     tfim_circuit(n, J, h, dt, steps, order=2, periodic=True) -> QuantumCircuit

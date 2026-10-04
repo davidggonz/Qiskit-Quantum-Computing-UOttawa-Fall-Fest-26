@@ -1,4 +1,4 @@
-"""Multi-product formulas.  (Owner: Leader, with Eli on the coefficient maths)
+"""Multi-product formulas.  (Owner: David, with Eli on the coefficient maths)
 
 TODO:
   1. Pick step counts, e.g. ks = [1, 2, 4] for a total time t (Trotter with dt = t/k).

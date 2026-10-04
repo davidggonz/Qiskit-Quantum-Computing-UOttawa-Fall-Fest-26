@@ -8,20 +8,20 @@ mitigation than linear ZNE, a few IBM hardware runs. Stretch: Iceberg-vs-topolog
 
 | Person | Role | Module(s) | Tasks |
 |---|---|---|---|
-| Leader | Physics lead, integrator | `tfim.py`, `mpf.py`, final write-up | Interface contract; Trotter circuits validated vs ED; MPF; review all PRs; analysis and write-up; Hubbard (stretch) |
+| David | Team leader, physics lead, integrator | `tfim.py`, `mpf.py`, final write-up | Interface contract; Trotter circuits validated vs ED; MPF; review all PRs; analysis and write-up; Hubbard (stretch) |
 | Boutaina | Hardware lead (about 7 h/week, front-loaded) | `hardware.py` | Account and backend choice; ring embedding on heavy-hex; transpilation reports; mitigation options (twirling, DD, TREX, ZNE); one batched job submission; Iceberg SWAP/depth analysis |
 | Ririsha | Classical baseline and numerics | `ed.py`, `extrapolation.py`, `metrics.py` | ED baseline (done, verify and extend); extrapolators (linear, Richardson, exponential) with tests; error-vs-time metrics |
 | Eli | Iceberg simulation | `iceberg.py` | Encoder, syndrome rounds, logical rotations, decoding; Aer noisy sweeps for discard rate and fidelity vs depth |
 | Toto | Noise models, plots, docs | `noise.py`, `plots.py`, README | Aer noise model from backend calibration; all figures and tables; reproducibility instructions; slides |
 
-Boutaina's hours are limited: her tasks have a hard deadline at the end of day 1 and the Leader
-shadows her as backup. Her day-3 job submission is done together with the Leader.
+Boutaina's hours are limited: her tasks have a hard deadline at the end of day 1 and David
+shadows her as backup. Her day-3 job submission is done together with David.
 
 ## Schedule
 
 - **Day 1:** interface contract (done in this skeleton); ED and Trotter circuits validated; Boutaina: account, backend, first transpilation (2-3 h); others: IBM Quantum Learning basics.
 - **Day 2:** MPF vs 2nd-order Trotter; extrapolators; Iceberg circuits and sims; noise model; mitigation config review; freeze hardware circuits.
-- **Day 3:** batched hardware runs (Boutaina + Leader); simulations continue.
+- **Day 3:** batched hardware runs (Boutaina + David); simulations continue.
 - **Day 4:** plots, comparison table vs the previous report, write-up. No new features.
 
 ## Interface contract
@@ -34,7 +34,7 @@ shadows her as backup. Her day-3 job submission is done together with the Leader
 
 ## Working rules
 
-- One branch per person (`name/topic`), pull requests into `main`, the Leader reviews.
+- One branch per person (`name/topic`), pull requests into `main`, David reviews.
 - Every module gets a test in `tests/`; run `pytest` before pushing.
 - Never commit IBM API tokens. Use `QiskitRuntimeService.save_account` locally or an environment variable.
 - Hardware time is scarce: test everything on Aer or a fake backend first, then batch.
