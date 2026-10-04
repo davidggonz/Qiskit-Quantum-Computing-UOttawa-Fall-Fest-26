@@ -1,5 +1,6 @@
 # Team plan: hardware-aware TFIM simulation on IBM Quantum
 
+Individual step-by-step briefs: `docs/briefs/`.
 Goal, approach and risks: see `proposal/Proposal_EN.pdf` (EN) and `proposal/Propuesta_ES.pdf` (ES).
 Time budget: 3-4 days. Core target: 1D TFIM, N = 6-12, Trotter vs multi-product formulas, better
 mitigation than linear ZNE, a few IBM hardware runs. Stretch: Iceberg-vs-topology study, Hubbard in simulation.
