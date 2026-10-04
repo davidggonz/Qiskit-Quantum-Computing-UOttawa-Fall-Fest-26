@@ -1,0 +1,12 @@
+[project]
+name = "qfest"
+version = "0.1.0"
+description = "Hardware-aware TFIM simulation and error mitigation on IBM Quantum"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,10 @@
+numpy
+scipy
+matplotlib
+pytest
+qiskit>=1.2
+qiskit-aer
+qiskit-ibm-runtime
+# optional / stretch
+# qiskit-addon-mpf
+# qiskit-addon-sqd
