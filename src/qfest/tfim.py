@@ -83,3 +83,9 @@ def trotter_observables(n, J=1.0, h=1.0, t=1.0, steps=1, order=2, periodic=True)
     from .ed import observables_ops, measure
     psi = Statevector(tfim_circuit(n, J, h, t / steps, steps, order, periodic)).data
     return measure(psi, observables_ops(n, periodic))
+
+
+def trotter_state(n, J=1.0, h=1.0, t=1.0, steps=1, order=2, periodic=True):
+    """Noiseless statevector (numpy array) after `steps` Trotter steps of size t/steps."""
+    from qiskit.quantum_info import Statevector
+    return Statevector(tfim_circuit(n, J, h, t / steps, steps, order, periodic)).data
