@@ -55,13 +55,20 @@ For a step-by-step walkthrough, open `demo.ipynb` in Jupyter or Google Colab. Th
 4. Hardware-aware layout selection.
 5. Execution and ZNE mitigation.
 
-## 📊 Outputs
+## 📊 Outputs & Visualization
 
-The pipeline saves results to the `results/` folder:
+The pipeline saves results to the root folder:
 - `tfim_results.json`: Detailed metadata, transpilation stats, and expectation values.
-- `accuracy_vs_level.png`: Plot of accuracy vs. optimization level.
-- `depth_vs_level.png`: Plot of circuit depth vs. optimization level.
-- `error_vs_mitigation.png`: Plot of ZNE extrapolation.
+
+### Results Preview
+
+| Accuracy vs Optimization Level | Depth vs Optimization Level | Error Mitigation (ZNE) |
+| :---: | :---: | :---: |
+| ![Accuracy](accuracy_vs_level.png) | ![Depth](depth_vs_level.png) | ![ZNE](error_vs_mitigation.png) |
+
+- **Accuracy vs Level**: Shows how increasing transpilation optimization reduces the error between the simulator and the exact theoretical result.
+- **Depth vs Level**: Demonstrates the reduction in circuit depth as optimization levels increase.
+- **ZNE Plot**: Visualizes the noise extrapolation process to find the zero-noise limit.
 
 ## 📝 License
 This project is developed for the Qiskit Fall Fest 2026.
