@@ -4,7 +4,7 @@ This project implements a hardware-side module for simulating the **Transverse-F
 
 ## 🚀 Features
 
-- **Trotterized TFIM Circuit Generation**: Constructs a 1D TFIM circuit for $N$ qubits ($N=4, 5$) with adjustable coupling ($J$), transverse field ($h$), and time-step parameters.
+- **Trotterized TFIM Circuit Generation**: Constructs the canonical periodic-ring TFIM circuit for even $N$, using symmetric second-order Trotterization and fused transverse-field rotations.
 - **Transpilation Analysis**: Compares Qiskit's optimization levels (0 to 3) by measuring circuit depth, gate counts (specifically CNOTs), and estimating overall circuit error.
 - **Hardware-Aware Optimization**: Implements a greedy qubit selection algorithm that picks physical qubits with the lowest readout and gate error rates, and maps the circuit to this optimal layout.
 - **Error Mitigation (ZNE)**: Implements Zero-Noise Extrapolation (ZNE) via manual unitary folding to mitigate hardware noise.
@@ -66,9 +66,21 @@ The pipeline saves results to the root folder:
 | :---: | :---: | :---: |
 | ![Accuracy](accuracy_vs_level.png) | ![Depth](depth_vs_level.png) | ![ZNE](error_vs_mitigation.png) |
 
-- **Accuracy vs Level**: Shows how increasing transpilation optimization reduces the error between the simulator and the exact theoretical result.
-- **Depth vs Level**: Demonstrates the reduction in circuit depth as optimization levels increase.
-- **ZNE Plot**: Visualizes the noise extrapolation process to find the zero-noise limit.
+**N=6, periodic ring, 2nd-order Trotter, fake-backend ibm_marrakesh.**
+
+- **Accuracy vs Level**: Compares noisy magnetization errors for fake-backend transpilation levels 0–3.
+- **Depth vs Level**: Shows transpiled depths for optimization levels 0–3.
+- **ZNE Plot**: Shows raw noisy samples and their zero-noise linear extrapolation.
+
+### Reproducibility
+
+Regenerate these plots with:
+
+```bash
+python hardware.py --n 6 --steps 20 --dt 0.05 --fake-backend ibm_marrakesh --noise simple --outdir results_canonical
+```
+
+The local `simple` noise model uses the project's 1% single-qubit and 3% two-qubit depolarizing rates.
 
 ## 📝 License
 This project is developed for the Qiskit Fall Fest 2026.

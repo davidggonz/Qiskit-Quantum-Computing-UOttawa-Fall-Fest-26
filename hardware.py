@@ -216,6 +216,71 @@ def build_tfim_circuit(n: int = 4, J: float = 1.0, h: float = 0.5,
     return qc
 
 
+def build_tfim_circuit_2nd_order(n, J, h, dt, steps, periodic=True, initial_state="quench"):
+    """Build a symmetric second-order TFIM circuit with fused X half-rotations."""
+    if not _QISKIT_AVAILABLE:
+        raise RuntimeError("qiskit is required")
+    if n % 2:
+        raise ValueError("N must be even for canonical TFIM + Iceberg compatibility")
+    if n < 2:
+        raise ValueError("n must be at least 2")
+    if initial_state not in ("quench", "adiabatic"):
+        raise ValueError("initial_state must be 'quench' or 'adiabatic'")
+
+    qc = QuantumCircuit(n)
+    if initial_state == "adiabatic":
+        qc.h(range(n))
+
+    edges = [(i, i + 1) for i in range(n - 1)]
+    if periodic and n > 2:
+        edges.append((n - 1, 0))
+    edge_layers = [[], []]
+    for index, edge in enumerate(edges):
+        edge_layers[index % 2].append(edge)
+
+    theta_x_half = -h * dt
+    theta_x_full = -2.0 * h * dt
+    theta_zz = -2.0 * J * dt
+    qc.rx(theta_x_half, range(n))
+    for _ in range(steps):
+        for layer in edge_layers:
+            for left, right in layer:
+                qc.rzz(theta_zz, left, right)
+        qc.rx(theta_x_half if _ == steps - 1 else theta_x_full, range(n))
+    return qc
+
+
+def build_tfim_circuit_1st_order(n, J, h, dt, steps, periodic=False):
+    """Legacy first-order builder, kept for the appendix ablation."""
+    if not _QISKIT_AVAILABLE:
+        raise RuntimeError("qiskit is required")
+    if n < 2:
+        raise ValueError("n must be at least 2")
+    qc = QuantumCircuit(n)
+    edges = [(i, i + 1) for i in range(n - 1)]
+    if periodic and n > 2:
+        edges.append((n - 1, 0))
+    for _ in range(steps):
+        for left, right in edges:
+            qc.rzz(-2.0 * J * dt, left, right)
+        qc.rx(-2.0 * h * dt, range(n))
+    return qc
+
+
+def measure_observables(qc, n):
+    """Return measurement circuits for M_z, M_x, and nearest-neighbor M_zz."""
+    if not _QISKIT_AVAILABLE:
+        raise RuntimeError("qiskit is required")
+    if qc.num_qubits != n:
+        raise ValueError("n must match the circuit's qubit count")
+    z_circuit = qc.copy()
+    z_circuit.measure_all()
+    x_circuit = qc.copy()
+    x_circuit.h(range(n))
+    x_circuit.measure_all()
+    return {"M_z": z_circuit, "M_x": x_circuit, "M_zz": z_circuit}
+
+
 def tfim_observables(n: int) -> dict[str, Any]:
     """Return magnetization + ZZ correlator observables (SparsePauliOp)."""
     if not _QISKIT_AVAILABLE:
@@ -288,11 +353,14 @@ def estimate_circuit_error(circ, backend=None) -> float | None:
 
 
 def transpile_comparison(circuit, backend=None, levels: Sequence[int] = (0, 1, 2, 3),
-                         seed: int = 42) -> list[dict[str, Any]]:
+                         seed: int = 42, vary_seed: bool = False) -> list[dict[str, Any]]:
     """Transpile at each optimization level; record depth/gates/CNOT/est error."""
     rows = []
     for lvl in levels:
-        kw: dict[str, Any] = {"optimization_level": int(lvl), "seed_transpiler": seed}
+        kw: dict[str, Any] = {
+            "optimization_level": int(lvl),
+            "seed_transpiler": seed + int(lvl) if vary_seed else seed,
+        }
         if backend is not None:
             kw["backend"] = backend
         t = transpile(circuit, **kw)
@@ -503,11 +571,81 @@ def counts_magnetization(counts: dict[str, int], n: int) -> float:
     return float(tot / shots) if shots else 0.0
 
 
+def counts_observables(counts_z: dict[str, int], counts_x: dict[str, int],
+                       n: int, periodic: bool = True) -> dict[str, float]:
+    """Compute M_z, M_x, and nearest-neighbor M_zz from measurement counts."""
+    shots = sum(counts_z.values())
+    if not shots:
+        return {"M_z": 0.0, "M_x": 0.0, "M_zz": 0.0}
+    edge_count = n if periodic else max(1, n - 1)
+    zz_total = 0.0
+    for bitstring, count in counts_z.items():
+        bits = bitstring.replace(" ", "")[-n:]
+        z_values = [1 if bits[-1 - i] == "0" else -1 for i in range(n)]
+        zz_total += count * sum(
+            z_values[i] * z_values[(i + 1) % n]
+            for i in range(edge_count)
+        ) / edge_count
+    return {
+        "M_z": counts_magnetization(counts_z, n),
+        "M_x": counts_magnetization(counts_x, n),
+        "M_zz": float(zz_total / shots),
+    }
+
+
 def run_aer_counts(circuit_with_measure, shots: int = 4096, seed: int = 42) -> dict[str, int]:
     from qiskit_aer import AerSimulator
     sim = AerSimulator(seed_simulator=seed)
     res = sim.run(circuit_with_measure, shots=shots, seed_simulator=seed).result()
     return dict(res.get_counts())
+
+
+def _get_fake_backend(name: str):
+    from qiskit_ibm_runtime.fake_provider import FakeFez, FakeMarrakesh
+
+    return {"ibm_marrakesh": FakeMarrakesh, "ibm_fez": FakeFez}[name]()
+
+
+def _get_aer_simulator(fake_backend, noise_mode: str):
+    from qiskit_aer import AerSimulator
+    from qiskit_aer.noise import NoiseModel
+    from src.qfest.noise import from_backend, simple_model
+
+    if noise_mode == "backend":
+        if fake_backend is None:
+            raise ValueError("--noise-model backend requires --fake-backend")
+        noise_model = from_backend(fake_backend)
+    elif noise_mode == "simple":
+        noise_model = simple_model()
+    else:
+        noise_model = NoiseModel()
+    if fake_backend is not None:
+        return AerSimulator.from_backend(fake_backend, noise_model=noise_model)
+    return AerSimulator(noise_model=noise_model)
+
+
+def _run_zne_counts(circuit, simulator, backend, n: int, shots: int, seed: int,
+                    periodic: bool, noise_factors: Sequence[int] = (1, 3, 5)) -> dict[str, Any]:
+    """Run unchanged global unitary folds through a sampled Aer execution path."""
+    raw = []
+    for index, scale in enumerate(noise_factors):
+        folded = fold_circuit_global(circuit, int(scale))
+        measured = folded.copy()
+        measured.measure_all()
+        transpiled = transpile(
+            measured, backend=backend, optimization_level=3,
+            seed_transpiler=seed + index,
+        )
+        counts = dict(simulator.run(
+            transpiled, shots=shots, seed_simulator=seed + index
+        ).result().get_counts())
+        raw.append(counts_observables(counts, counts, n, periodic)["M_z"])
+    return {
+        "noise_factors": list(noise_factors),
+        "raw": [float(value) for value in raw],
+        "mitigated": float(zne_extrapolate(noise_factors, raw, "linear")),
+        "extrapolator": "linear",
+    }
 
 
 def run_hardware(service, backend_name: str, circuit_no_measure, observables: dict[str, Any],
@@ -562,7 +700,7 @@ def run_hardware(service, backend_name: str, circuit_no_measure, observables: di
 # ---------------------------------------------------------------------------
 
 def exact_magnetization(n: int, J: float, h: float, dt: float, steps: int,
-                        init_plus: bool = False) -> float:
+                        init_plus: bool = False, periodic: bool = False) -> float:
     """Exact <Z_avg> via numpy expm, same init as circuit (default |0>^N)."""
     from scipy.linalg import expm
     X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -579,6 +717,10 @@ def exact_magnetization(n: int, J: float, h: float, dt: float, steps: int,
     for i in range(n - 1):
         ops = [I] * n
         ops[i], ops[i + 1] = Z, Z
+        H += -J * kron_n(ops)
+    if periodic and n > 2:
+        ops = [I] * n
+        ops[n - 1], ops[0] = Z, Z
         H += -J * kron_n(ops)
     for i in range(n):
         ops = [I] * n
@@ -653,11 +795,16 @@ def make_plots(analysis_rows: list[dict], zne: dict | None, exact: float, outdir
         x = list(zne["noise_factors"])
         y = list(zne["raw"])
         ax.plot(x, y, marker="o", label="raw")
-        ax.axhline(zne["mitigated"], linestyle="--", label="mitigated")
-        ax.axhline(exact, linestyle=":", label="exact")
+        ax.axhline(zne["mitigated"], linestyle="--", label="zero-noise extrapolation")
+        ax.scatter([0], [zne["mitigated"]], marker="*", s=140, zorder=4,
+                   label="extrapolated at zero noise")
+        spread = max(y) - min(y)
+        padding = max(spread * 0.35, 0.002)
+        ax.set_ylim(min(min(y), zne["mitigated"]) - padding,
+                    max(max(y), zne["mitigated"]) + padding)
         ax.set_xlabel("noise factor")
-        ax.set_ylabel("magnetization")
-        ax.set_title("Error vs mitigation (ZNE)")
+        ax.set_ylabel("M_z estimate")
+        ax.set_title(f"ZNE M_z (exact={exact:.4f})")
         ax.legend()
         ax.grid(True, alpha=0.3)
     p3 = out / "error_vs_mitigation.png"
@@ -674,19 +821,31 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
                  steps: int = 3, shots: int = 4096, seed: int = 42,
                  backend_name: str = "", channel: str = "ibm_quantum_platform",
                  outdir: str = "results", no_hardware: bool = False,
-                 with_noise_demo: bool = False, init_plus: bool = False) -> dict[str, Any]:
+                 with_noise_demo: bool = False, init_plus: bool = False,
+                 trotter_order: int = 2, periodic: bool = True,
+                 protocol: str = "quench", fake_backend_name: str = "",
+                 noise_mode: str = "ideal") -> dict[str, Any]:
     """Full pipeline; hardware section skipped if no token / --no-hardware."""
     t0 = time.time()
     random.seed(seed)
     np.random.seed(seed)
     out = ensure_outdir(outdir)
 
-    circ_meas = build_tfim_circuit(n, J, h, dt, steps, add_measure=True, init_plus=init_plus)
-    circ = build_tfim_circuit(n, J, h, dt, steps, add_measure=False, init_plus=init_plus)
+    if trotter_order == 2:
+        circ = build_tfim_circuit_2nd_order(n, J, h, dt, steps, periodic, protocol)
+    else:
+        circ = build_tfim_circuit_1st_order(n, J, h, dt, steps, periodic)
+        if protocol == "adiabatic":
+            initial = QuantumCircuit(n)
+            initial.h(range(n))
+            circ = initial.compose(circ)
+    circ_meas = circ.copy()
+    circ_meas.measure_all()
     obs = tfim_observables(n)
 
     backend, binfo = None, {}
-    if not no_hardware:
+    fake_backend = _get_fake_backend(fake_backend_name) if fake_backend_name else None
+    if not no_hardware and fake_backend is None:
         try:
             svc = get_service(channel=channel)
             backend = select_backend(svc, min_qubits=n) if not backend_name else svc.backend(backend_name)
@@ -695,7 +854,11 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
             print(f"Hardware setup skipped: {type(ex).__name__}: {ex}")
             backend = None
     # Transpilation (needs backend or basis-agnostic)
-    rows = transpile_comparison(circ_meas, backend, levels=(0, 1, 2, 3), seed=seed)
+    target_backend = fake_backend or backend
+    rows = transpile_comparison(
+        circ_meas, target_backend, levels=(0, 1, 2, 3), seed=seed,
+        vary_seed=fake_backend is not None,
+    )
     print_comparison_table(rows)
 
     layout: dict[str, Any] = {}
@@ -706,8 +869,39 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
         except Exception as ex:
             layout = {"error": f"{type(ex).__name__}: {ex}"}
 
-    exact = exact_magnetization(n, J, h, dt, steps, init_plus=init_plus)
-    aer_vals = {str(r["optimization_level"]): aer_estimator_value(circ, obs["magnetization"], shots, seed) for r in rows}
+    exact = exact_magnetization(n, J, h, dt, steps,
+                                init_plus=(protocol == "adiabatic"), periodic=periodic)
+    noisy_path = fake_backend is not None or noise_mode != "ideal"
+    simulator = _get_aer_simulator(fake_backend or backend, noise_mode) if noisy_path else None
+    measured = measure_observables(circ, n)
+    noisy_observables: dict[str, float] = {}
+    noisy_counts: dict[str, int] = {}
+    if noisy_path:
+        aer_vals = {}
+        for row in rows:
+            level = int(row["optimization_level"])
+            level_seed = seed + level
+            z_circuit = transpile(
+                measured["M_z"], backend=target_backend,
+                optimization_level=level, seed_transpiler=level_seed,
+            )
+            x_circuit = transpile(
+                measured["M_x"], backend=target_backend,
+                optimization_level=level, seed_transpiler=level_seed,
+            )
+            z_counts = dict(simulator.run(
+                z_circuit, shots=shots, seed_simulator=level_seed
+            ).result().get_counts())
+            x_counts = dict(simulator.run(
+                x_circuit, shots=shots, seed_simulator=level_seed
+            ).result().get_counts())
+            level_observables = counts_observables(z_counts, x_counts, n, periodic)
+            aer_vals[str(level)] = level_observables["M_z"]
+            if level == 3:
+                noisy_observables = level_observables
+                noisy_counts = z_counts
+    else:
+        aer_vals = {str(r["optimization_level"]): aer_estimator_value(circ, obs["magnetization"], shots, seed) for r in rows}
 
     noise_model = None
     if with_noise_demo:
@@ -719,9 +913,26 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
             noise_model = nm
         except Exception:
             noise_model = None
-    zne = run_zne_aer(circ, obs["magnetization"], shots, seed, (1, 3, 5), "linear", noise_model)
-    counts = run_aer_counts(circ_meas, shots, seed)
+    if noisy_path:
+        zne = _run_zne_counts(
+            circ, simulator, target_backend, n, shots, seed, periodic, (1, 3, 5)
+        )
+        counts = noisy_counts
+    else:
+        zne = run_zne_aer(circ, obs["magnetization"], shots, seed, (1, 3, 5), "linear", noise_model)
+        counts = run_aer_counts(circ_meas, shots, seed)
     mag_counts = counts_magnetization(counts, n)
+    if noisy_observables:
+        print("Noisy observables (optimization level 3): " +
+              ", ".join(f"{key}={value:.6f}" for key, value in noisy_observables.items()))
+    if fake_backend is not None:
+        ideal_value = aer_estimator_value(circ, obs["magnetization"], shots, seed)
+        noisy_value = aer_vals["3"]
+        delta = abs(noisy_value - ideal_value)
+        print(f"Fake-backend noise check: ideal={ideal_value:.6f} noisy={noisy_value:.6f} delta={delta:.6g}")
+        if noise_mode != "ideal" and delta <= 1e-6:
+            print("WARNING: noisy raw expectation matches ideal within 1e-6; stopping.")
+            raise RuntimeError("Fake-backend noise was not applied to the execution path")
 
     hw: dict[str, Any] = {}
     if backend is not None:
@@ -753,7 +964,8 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
     payload = {
         "meta": {"time": _dt.datetime.now(_dt.timezone.utc).isoformat(), "seed": seed,
                  "params": {"n": n, "J": J, "h": h, "dt": dt, "steps": steps, "shots": shots,
-                            "backend": getattr(backend, "name", backend_name) if backend is not None else backend_name,
+                            "trotter_order": trotter_order, "periodic": periodic, "protocol": protocol,
+                            "backend": fake_backend_name or (getattr(backend, "name", backend_name) if backend is not None else backend_name),
                             "no_hardware": backend is None, "outdir": str(outdir),
                             "init_plus": init_plus},
                  "versions": versions, "wall_s": round(time.time() - t0, 2)},
@@ -771,11 +983,18 @@ def run_pipeline(n: int = 4, J: float = 1.0, h: float = 0.5, dt: float = 0.1,
 
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="TFIM hardware module")
-    ap.add_argument("--n", type=int, default=4)
+    ap.add_argument("--n", type=int, default=6)
     ap.add_argument("--J", type=float, default=1.0)
-    ap.add_argument("--h", type=float, default=0.5)
-    ap.add_argument("--dt", type=float, default=0.1)
-    ap.add_argument("--steps", type=int, default=3)
+    ap.add_argument("--h", type=float, default=None, help="Directly set h instead of using --h-over-j")
+    ap.add_argument("--h-over-j", type=float, choices=(0.5, 1.0, 2.0), default=0.5)
+    ap.add_argument("--dt", type=float, default=0.05)
+    ap.add_argument("--steps", type=int, default=20)
+    ap.add_argument("--trotter-order", type=int, choices=(1, 2), default=2)
+    topology = ap.add_mutually_exclusive_group()
+    topology.add_argument("--periodic", action="store_true", dest="periodic")
+    topology.add_argument("--open-chain", action="store_false", dest="periodic")
+    ap.set_defaults(periodic=True)
+    ap.add_argument("--protocol", choices=("quench", "adiabatic"), default="quench")
     ap.add_argument("--shots", type=int, default=4096)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--backend", type=str, default="")
@@ -783,11 +1002,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--outdir", type=str, default="results")
     ap.add_argument("--no-hardware", action="store_true")
     ap.add_argument("--with-noise-demo", action="store_true")
-    ap.add_argument("--init-plus", action="store_true", help="Start from |+>^N instead of |0>^N")
+    ap.add_argument("--fake-backend", choices=("none", "ibm_marrakesh", "ibm_fez"), default="none")
+    ap.add_argument("--noise-model", "--noise", dest="noise_model",
+                    choices=("ideal", "simple", "backend"), default=None)
+    ap.add_argument("--init-plus", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
-    run_pipeline(args.n, args.J, args.h, args.dt, args.steps, args.shots, args.seed,
+    if args.n % 2:
+        raise ValueError("N must be even for canonical TFIM + Iceberg compatibility")
+    h = args.h if args.h is not None else args.J * args.h_over_j
+    protocol = "adiabatic" if args.init_plus else args.protocol
+    fake_backend_name = "" if args.fake_backend == "none" else args.fake_backend
+    noise_mode = args.noise_model or ("backend" if fake_backend_name else "ideal")
+    run_pipeline(args.n, args.J, h, args.dt, args.steps, args.shots, args.seed,
                  args.backend, args.channel, args.outdir, args.no_hardware, args.with_noise_demo,
-                 args.init_plus)
+                 protocol == "adiabatic", args.trotter_order, args.periodic, protocol,
+                 fake_backend_name, noise_mode)
     return 0
 
 

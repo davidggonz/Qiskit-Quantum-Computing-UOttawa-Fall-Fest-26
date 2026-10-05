@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "time": "2026-10-05T22:05:14.068048+00:00",
+    "seed": 42,
+    "params": {
+      "n": 6,
+      "J": 1.0,
+      "h": 0.5,
+      "dt": 0.05,
+      "steps": 20,
+      "shots": 4096,
+      "trotter_order": 2,
+      "periodic": true,
+      "protocol": "quench",
+      "backend": "ibm_marrakesh",
+      "no_hardware": true,
+      "outdir": "results_canonical",
+      "init_plus": false
+    },
+    "versions": {
+      "qiskit": "2.5.2",
+      "qiskit_aer": "0.17.2",
+      "qiskit_ibm_runtime": "0.50.0",
+      "numpy": "2.4.4",
+      "scipy": "1.18.1"
+    },
+    "wall_s": 14.06
+  },
+  "backend": {},
+  "transpilation": [
+    {
+      "optimization_level": 0,
+      "depth": 875,
+      "qubits": 156,
+      "total_gates": 3156,
+      "cx_like": 480,
+      "counts": {
+        "rz": 1458,
+        "sx": 1212,
+        "cz": 480,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": 1.0
+    },
+    {
+      "optimization_level": 1,
+      "depth": 718,
+      "qubits": 156,
+      "total_gates": 2372,
+      "cx_like": 474,
+      "counts": {
+        "rz": 972,
+        "sx": 920,
+        "cz": 474,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": 1.0
+    },
+    {
+      "optimization_level": 2,
+      "depth": 620,
+      "qubits": 156,
+      "total_gates": 2149,
+      "cx_like": 474,
+      "counts": {
+        "sx": 958,
+        "rz": 670,
+        "cz": 474,
+        "x": 41,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": 1.0
+    },
+    {
+      "optimization_level": 3,
+      "depth": 882,
+      "qubits": 156,
+      "total_gates": 2060,
+      "cx_like": 460,
+      "counts": {
+        "sx": 933,
+        "rz": 618,
+        "cz": 460,
+        "x": 43,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": 1.0
+    }
+  ],
+  "layout": {},
+  "exact_magnetization": 0.8680534952109827,
+  "aer_expectations": {
+    "0": -0.00024414062500000694,
+    "1": 0.00878906249999999,
+    "2": 0.0030924479166666574,
+    "3": -0.007242838541666664
+  },
+  "zne_aer": {
+    "noise_factors": [
+      1,
+      3,
+      5
+    ],
+    "raw": [
+      0.0045572916666666696,
+      0.005045572916666666,
+      0.0013834635416666652
+    ],
+    "mitigated": 0.0060424804687500035,
+    "extrapolator": "linear"
+  },
+  "aer_counts_mag": -0.007242838541666664,
+  "hardware": {},
+  "analysis": {
+    "exact": 0.8680534952109827,
+    "table": [
+      {
+        "optimization_level": 0,
+        "depth": 875,
+        "qubits": 156,
+        "total_gates": 3156,
+        "cx_like": 480,
+        "counts": {
+          "rz": 1458,
+          "sx": 1212,
+          "cz": 480,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": 1.0,
+        "aer_value": -0.00024414062500000694,
+        "abs_error": 0.8682976358359827
+      },
+      {
+        "optimization_level": 1,
+        "depth": 718,
+        "qubits": 156,
+        "total_gates": 2372,
+        "cx_like": 474,
+        "counts": {
+          "rz": 972,
+          "sx": 920,
+          "cz": 474,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": 1.0,
+        "aer_value": 0.00878906249999999,
+        "abs_error": 0.8592644327109827
+      },
+      {
+        "optimization_level": 2,
+        "depth": 620,
+        "qubits": 156,
+        "total_gates": 2149,
+        "cx_like": 474,
+        "counts": {
+          "sx": 958,
+          "rz": 670,
+          "cz": 474,
+          "x": 41,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": 1.0,
+        "aer_value": 0.0030924479166666574,
+        "abs_error": 0.8649610472943161
+      },
+      {
+        "optimization_level": 3,
+        "depth": 882,
+        "qubits": 156,
+        "total_gates": 2060,
+        "cx_like": 460,
+        "counts": {
+          "sx": 933,
+          "rz": 618,
+          "cz": 460,
+          "x": 43,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": 1.0,
+        "aer_value": -0.007242838541666664,
+        "abs_error": 0.8752963337526494
+      },
+      {
+        "optimization_level": "zne",
+        "mitigated": 0.0060424804687500035,
+        "raw": [
+          0.0045572916666666696,
+          0.005045572916666666,
+          0.0013834635416666652
+        ]
+      }
+    ]
+  }
+}

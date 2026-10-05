@@ -1,0 +1,190 @@
+{
+  "meta": {
+    "time": "2026-10-05T20:54:13.753150+00:00",
+    "seed": 42,
+    "params": {
+      "n": 6,
+      "J": 1.0,
+      "h": 0.5,
+      "dt": 0.05,
+      "steps": 100,
+      "shots": 4096,
+      "trotter_order": 2,
+      "periodic": true,
+      "protocol": "quench",
+      "backend": "",
+      "no_hardware": true,
+      "outdir": "results_100",
+      "init_plus": false
+    },
+    "versions": {
+      "qiskit": "2.5.2",
+      "qiskit_aer": "0.17.2",
+      "qiskit_ibm_runtime": "0.50.0",
+      "numpy": "2.4.4",
+      "scipy": "1.18.1"
+    },
+    "wall_s": 7.15
+  },
+  "backend": {},
+  "transpilation": [
+    {
+      "optimization_level": 0,
+      "depth": 302,
+      "qubits": 6,
+      "total_gates": 1212,
+      "cx_like": 600,
+      "counts": {
+        "rx": 606,
+        "rzz": 600,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 1,
+      "depth": 302,
+      "qubits": 6,
+      "total_gates": 1212,
+      "cx_like": 600,
+      "counts": {
+        "rx": 606,
+        "rzz": 600,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 2,
+      "depth": 302,
+      "qubits": 6,
+      "total_gates": 1212,
+      "cx_like": 600,
+      "counts": {
+        "rx": 606,
+        "rzz": 600,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 3,
+      "depth": 302,
+      "qubits": 6,
+      "total_gates": 1212,
+      "cx_like": 600,
+      "counts": {
+        "rx": 606,
+        "rzz": 600,
+        "measure": 6,
+        "barrier": 1
+      },
+      "est_error": null
+    }
+  ],
+  "layout": {},
+  "exact_magnetization": 0.87886647034842,
+  "aer_expectations": {
+    "0": 0.8793747134878616,
+    "1": 0.8793747134878616,
+    "2": 0.8793747134878616,
+    "3": 0.8793747134878616
+  },
+  "zne_aer": {
+    "noise_factors": [
+      1,
+      3,
+      5
+    ],
+    "raw": [
+      0.8793747134878616,
+      0.879374713488019,
+      0.8793747134881778
+    ],
+    "mitigated": 0.8793747134877818,
+    "extrapolator": "linear"
+  },
+  "aer_counts_mag": 0.8812662760416667,
+  "hardware": {},
+  "analysis": {
+    "exact": 0.87886647034842,
+    "table": [
+      {
+        "optimization_level": 0,
+        "depth": 302,
+        "qubits": 6,
+        "total_gates": 1212,
+        "cx_like": 600,
+        "counts": {
+          "rx": 606,
+          "rzz": 600,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": null,
+        "aer_value": 0.8793747134878616,
+        "abs_error": 0.0005082431394415332
+      },
+      {
+        "optimization_level": 1,
+        "depth": 302,
+        "qubits": 6,
+        "total_gates": 1212,
+        "cx_like": 600,
+        "counts": {
+          "rx": 606,
+          "rzz": 600,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": null,
+        "aer_value": 0.8793747134878616,
+        "abs_error": 0.0005082431394415332
+      },
+      {
+        "optimization_level": 2,
+        "depth": 302,
+        "qubits": 6,
+        "total_gates": 1212,
+        "cx_like": 600,
+        "counts": {
+          "rx": 606,
+          "rzz": 600,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": null,
+        "aer_value": 0.8793747134878616,
+        "abs_error": 0.0005082431394415332
+      },
+      {
+        "optimization_level": 3,
+        "depth": 302,
+        "qubits": 6,
+        "total_gates": 1212,
+        "cx_like": 600,
+        "counts": {
+          "rx": 606,
+          "rzz": 600,
+          "measure": 6,
+          "barrier": 1
+        },
+        "est_error": null,
+        "aer_value": 0.8793747134878616,
+        "abs_error": 0.0005082431394415332
+      },
+      {
+        "optimization_level": "zne",
+        "mitigated": 0.8793747134877818,
+        "raw": [
+          0.8793747134878616,
+          0.879374713488019,
+          0.8793747134881778
+        ]
+      }
+    ]
+  }
+}
