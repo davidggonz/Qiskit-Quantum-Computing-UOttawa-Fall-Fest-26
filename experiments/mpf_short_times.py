@@ -7,6 +7,8 @@ We report, per h/J:
   * noiseless error vs ED (statevector), and
   * error with a finite shot budget (same TOTAL shots for every method; MPF splits them
     across its circuits proportional to |x_j|), averaged over `reps` repetitions.
+MPF coefficients: exact Richardson (= qiskit-addon-mpf exact LSE) and, with --l1, the addon's
+well-conditioned sum-of-squares coefficients with ||x||_1 bounded (skipped when not binding).
 Error metric: the previous report's convention, 100 * max_t |dMzz| / max_t |Mzz_ED|,
 plus the full error-vs-time curves in the saved JSON.
 
@@ -19,7 +21,7 @@ import numpy as np
 
 from qfest.ed import quench
 from qfest.metrics import max_report_deviation
-from qfest.mpf import richardson_coefficients, noise_amplification
+from qfest.mpf import richardson_coefficients, approx_coefficients, noise_amplification
 from qfest.results import save
 from qfest.shots import z_diagonals, sample_estimate, allocate_shots
 from qfest.tfim import trotter_state
@@ -37,6 +39,8 @@ def parse():
                    help="comma-separated MPF step counts; repeat flag for several sets")
     p.add_argument("--shots", type=int, nargs="+", default=[1000, 10000],
                    help="total shot budgets per time point")
+    p.add_argument("--l1", type=float, nargs="*", default=[1.5, 2.0],
+                   help="also run well-conditioned qiskit-addon-mpf coefficients with ||x||_1 <= each value")
     p.add_argument("--reps", type=int, default=30)
     p.add_argument("--seed", type=int, default=1234)
     a = p.parse_args()
@@ -57,7 +61,12 @@ def run_h(a, h, rng):
 
     methods = {"trotter": {"ks": [a.kmax], "x": np.array([1.0])}}
     for ks in a.ks:
-        methods["mpf_" + "-".join(map(str, ks))] = {"ks": ks, "x": richardson_coefficients(ks)}
+        tag = "mpf_" + "-".join(map(str, ks))
+        methods[tag] = {"ks": ks, "x": richardson_coefficients(ks)}
+        for l1 in a.l1:
+            x = approx_coefficients(ks, l1)
+            if noise_amplification(x) < noise_amplification(methods[tag]["x"]) - 1e-6:
+                methods[f"{tag}_l1<={l1:g}"] = {"ks": ks, "x": x}
 
     out = {}
     for name, m in methods.items():
@@ -94,12 +103,12 @@ def main():
         times, exact, out = run_h(a, h, rng)
         print(f"\nN={a.n}  h/J={h}  t in (0, {a.tmax}]  k_max={a.kmax}  "
               f"(error = report %, mean over {a.reps} reps)")
-        hdr = f"{'method':<14}{'||x||1':>8}{'noiseless':>11}" + "".join(f"{'S=' + str(S):>16}" for S in a.shots)
+        hdr = f"{'method':<22}{'||x||1':>8}{'noiseless':>11}" + "".join(f"{'S=' + str(S):>16}" for S in a.shots)
         print(hdr)
         for name, r in out.items():
             cells = "".join(f"{r['shots'][str(S)]['report_dev_mean']:>9.3f} ±{r['shots'][str(S)]['report_dev_std']:<5.2f}"
                             for S in a.shots)
-            print(f"{name:<14}{r['noise_amplification']:>8.2f}{r['noiseless_report_dev']:>11.4f}{cells}")
+            print(f"{name:<22}{r['noise_amplification']:>8.2f}{r['noiseless_report_dev']:>11.4f}{cells}")
         path = save({
             "experiment": "mpf_short_times",
             "backend": "statevector+shot_sampling",

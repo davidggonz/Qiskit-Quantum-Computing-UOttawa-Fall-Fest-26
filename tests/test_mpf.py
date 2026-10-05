@@ -31,3 +31,13 @@ def test_table2_reproduced_exactly():
         tr = trotter_curve(6, 1.0, 1.0, dt, int(round(20 / dt)))
         ex = quench(6, tr["t"], 1.0, 1.0)
         assert max_report_deviation(tr["Mzz"][1:], ex["Mzz"][1:]) == pytest.approx(expected, abs=0.006)
+
+
+def test_addon_exact_matches_ours_and_bound_is_respected():
+    pytest.importorskip("qiskit_addon_mpf")
+    from qiskit_addon_mpf.static import setup_static_lse
+    from qfest.mpf import approx_coefficients
+    ks = [4, 6, 8]
+    assert np.allclose(setup_static_lse(ks, order=2, symmetric=True).solve(), richardson_coefficients(ks))
+    x = approx_coefficients(ks, 2.0)
+    assert x.sum() == pytest.approx(1.0, abs=1e-6) and noise_amplification(x) <= 2.0 + 1e-6

@@ -48,3 +48,19 @@ def mpf_observables(n, J, h, t, ks, order=2, periodic=True):
     x = richardson_coefficients(ks, order)
     runs = [trotter_observables(n, J, h, t, k, order, periodic) for k in ks]
     return {key: float(mpf_expectation([r[key] for r in runs], x)) for key in runs[0]}
+
+
+def approx_coefficients(ks, max_l1_norm, order=2):
+    """Well-conditioned static MPF coefficients from qiskit-addon-mpf.
+
+    Minimises sum_i (A x - b)_i^2 subject to sum(x) = 1 and ||x||_1 <= max_l1_norm, i.e. trades
+    some Trotter-error cancellation for less shot-noise amplification. With a loose bound it
+    reduces to `richardson_coefficients` (identical to the addon's exact LSE solution).
+    Requires `pip install qiskit-addon-mpf`.
+    """
+    from qiskit_addon_mpf.costs import setup_sum_of_squares_problem
+    from qiskit_addon_mpf.static import setup_static_lse
+    lse = setup_static_lse(list(ks), order=order, symmetric=(order == 2))
+    problem, x = setup_sum_of_squares_problem(lse, max_l1_norm=max_l1_norm)
+    problem.solve()
+    return np.asarray(x.value, dtype=float)
