@@ -1,7 +1,7 @@
 """Reproduce Table 2 of the previous report: max Mzz deviation of 2nd-order Trotter vs ED.
 
-N = 6 periodic chain, quench from |0...0>, T = 20, deviation = 100 x max_t |Mzz_Trotter - Mzz_ED|
-(the report's convention). Run:  python experiments/table2_trotter.py
+N = 6 periodic chain, quench from |0...0>, T = 20, deviation = 100 x max_t |dMzz| / max_t |Mzz_ED|
+over t = dt..T (the report's convention, taken from the old project's run_dt_convergence.py). Run:  python experiments/table2_trotter.py
 """
 import numpy as np
 
@@ -28,10 +28,11 @@ def main():
             steps = int(round(T / dt))
             tr = trotter_curve(N, J, h, dt, steps, order=2)
             ex = quench(N, tr["t"], J, h)
-            ours[h].append(max_report_deviation(tr["Mzz"], ex["Mzz"]))
-            rel[h].append(max_percent_deviation(tr["Mzz"], ex["Mzz"]))
+            # drop t = 0 like the old code, which sampled t = dt..T
+            ours[h].append(max_report_deviation(tr["Mzz"][1:], ex["Mzz"][1:]))
+            rel[h].append(max_percent_deviation(tr["Mzz"][1:], ex["Mzz"][1:]))
 
-    print("Max Mzz deviation, 100 x absolute error (report value in brackets)")
+    print("Max Mzz deviation in % (report convention); report value in brackets")
     print("h/J  | " + " | ".join(f"dt={dt}" for dt in DTS))
     for h in HS:
         print(f"{h:<4} | " + " | ".join(f"{o:.3f} ({r})" for o, r in zip(ours[h], REPORT[h])))
@@ -43,7 +44,7 @@ def main():
         "method": "trotter2",
         "observables": {},
         "extra": {
-            "max_abs_dev_x100": {str(h): ours[h] for h in HS},
+            "max_report_dev_percent": {str(h): ours[h] for h in HS},
             "max_rel_dev_percent": {str(h): rel[h] for h in HS},
             "report_table2": {str(h): REPORT[h] for h in HS},
         },

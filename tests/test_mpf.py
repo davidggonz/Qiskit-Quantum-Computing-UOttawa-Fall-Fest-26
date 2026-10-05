@@ -21,3 +21,13 @@ def test_mpf_beats_trotter_at_same_max_depth():
     trotter_err = abs(trotter_observables(n, 1.0, h, t, max(ks))["Mzz"] - exact)
     mpf_err = abs(mpf_observables(n, 1.0, h, t, ks)["Mzz"] - exact)
     assert mpf_err < trotter_err / 10
+
+
+def test_table2_reproduced_exactly():
+    """Old report Table 2 entries for h/J = 1 (the most sensitive row)."""
+    from qfest.metrics import max_report_deviation
+    from qfest.tfim import trotter_curve
+    for dt, expected in ((0.2, 50.53), (0.1, 12.66), (0.05, 3.12)):
+        tr = trotter_curve(6, 1.0, 1.0, dt, int(round(20 / dt)))
+        ex = quench(6, tr["t"], 1.0, 1.0)
+        assert max_report_deviation(tr["Mzz"][1:], ex["Mzz"][1:]) == pytest.approx(expected, abs=0.006)

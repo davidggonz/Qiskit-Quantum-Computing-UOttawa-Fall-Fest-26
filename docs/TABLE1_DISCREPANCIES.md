@@ -15,6 +15,13 @@ values violate: Kramers-Wannier duality `Mx(h) = Mzz(1/h)` and self-duality `Mx 
 | 8 | 1.0 | Mzz | 0.406729 | 0.640729 |
 | 10 | 0.5 | Mz | 0.967859 | 0.968589 |
 
-These look like transcription errors in the report's table (digits transposed or mistyped), not
-different physics. All other entries match to 6 decimals. Use our ED values as the reference and
+**Confirmed:** running the old project's own code (`guesar2/challenge3-hackathon`,
+`src/exact_diagonalization.py::ed_baseline`) prints exactly our values for every entry above.
+The errors were introduced when the table was typed into the report; the old code was correct. All other entries match to 6 decimals. Use our ED values as the reference and
 mention the correction in the final write-up.
+
+## Table 2 convention
+
+The report's Table 2 "%" is `100 * max_t |Mzz_Trotter - Mzz_ED| / max_t |Mzz_ED|` over
+t = dt..T (from the old `src/run_dt_convergence.py`). With this definition
+`experiments/table2_trotter.py` reproduces every Table 2 entry exactly.
