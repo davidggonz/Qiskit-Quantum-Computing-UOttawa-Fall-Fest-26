@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "time": "2026-10-05T16:12:13.845621+00:00",
+    "seed": 42,
+    "params": {
+      "n": 4,
+      "J": 1.0,
+      "h": 0.5,
+      "dt": 0.1,
+      "steps": 3,
+      "shots": 4096,
+      "backend": "",
+      "no_hardware": true,
+      "outdir": "results",
+      "init_plus": false
+    },
+    "versions": {
+      "qiskit": "2.5.2",
+      "qiskit_aer": "0.17.2",
+      "qiskit_ibm_runtime": "0.50.0",
+      "numpy": "2.4.4",
+      "scipy": "1.18.1"
+    },
+    "wall_s": 33.04
+  },
+  "backend": {},
+  "transpilation": [
+    {
+      "optimization_level": 0,
+      "depth": 13,
+      "qubits": 4,
+      "total_gates": 25,
+      "cx_like": 9,
+      "counts": {
+        "rx": 12,
+        "rzz": 9,
+        "measure": 4,
+        "barrier": 3
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 1,
+      "depth": 13,
+      "qubits": 4,
+      "total_gates": 25,
+      "cx_like": 9,
+      "counts": {
+        "rx": 12,
+        "rzz": 9,
+        "measure": 4,
+        "barrier": 3
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 2,
+      "depth": 13,
+      "qubits": 4,
+      "total_gates": 25,
+      "cx_like": 9,
+      "counts": {
+        "rx": 12,
+        "rzz": 9,
+        "measure": 4,
+        "barrier": 3
+      },
+      "est_error": null
+    },
+    {
+      "optimization_level": 3,
+      "depth": 13,
+      "qubits": 4,
+      "total_gates": 25,
+      "cx_like": 9,
+      "counts": {
+        "rx": 12,
+        "rzz": 9,
+        "measure": 4,
+        "barrier": 3
+      },
+      "est_error": null
+    }
+  ],
+  "layout": {},
+  "exact_magnetization": 0.9585181029259411,
+  "aer_expectations": {
+    "0": 0.9581860103832971,
+    "1": 0.9581860103832971,
+    "2": 0.9581860103832971,
+    "3": 0.9581860103832971
+  },
+  "zne_aer": {
+    "noise_factors": [
+      1,
+      3,
+      5
+    ],
+    "raw": [
+      0.9581860103832971,
+      0.9581860103833021,
+      0.9581860103833055
+    ],
+    "mitigated": 0.9581860103832948,
+    "extrapolator": "linear"
+  },
+  "aer_counts_mag": 0.9605712890625,
+  "hardware": {},
+  "analysis": {
+    "exact": 0.9585181029259411,
+    "table": [
+      {
+        "optimization_level": 0,
+        "depth": 13,
+        "qubits": 4,
+        "total_gates": 25,
+        "cx_like": 9,
+        "counts": {
+          "rx": 12,
+          "rzz": 9,
+          "measure": 4,
+          "barrier": 3
+        },
+        "est_error": null,
+        "aer_value": 0.9581860103832971,
+        "abs_error": 0.00033209254264399135
+      },
+      {
+        "optimization_level": 1,
+        "depth": 13,
+        "qubits": 4,
+        "total_gates": 25,
+        "cx_like": 9,
+        "counts": {
+          "rx": 12,
+          "rzz": 9,
+          "measure": 4,
+          "barrier": 3
+        },
+        "est_error": null,
+        "aer_value": 0.9581860103832971,
+        "abs_error": 0.00033209254264399135
+      },
+      {
+        "optimization_level": 2,
+        "depth": 13,
+        "qubits": 4,
+        "total_gates": 25,
+        "cx_like": 9,
+        "counts": {
+          "rx": 12,
+          "rzz": 9,
+          "measure": 4,
+          "barrier": 3
+        },
+        "est_error": null,
+        "aer_value": 0.9581860103832971,
+        "abs_error": 0.00033209254264399135
+      },
+      {
+        "optimization_level": 3,
+        "depth": 13,
+        "qubits": 4,
+        "total_gates": 25,
+        "cx_like": 9,
+        "counts": {
+          "rx": 12,
+          "rzz": 9,
+          "measure": 4,
+          "barrier": 3
+        },
+        "est_error": null,
+        "aer_value": 0.9581860103832971,
+        "abs_error": 0.00033209254264399135
+      },
+      {
+        "optimization_level": "zne",
+        "mitigated": 0.9581860103832948,
+        "raw": [
+          0.9581860103832971,
+          0.9581860103833021,
+          0.9581860103833055
+        ]
+      }
+    ]
+  }
+}
