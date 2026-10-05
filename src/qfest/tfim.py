@@ -46,3 +46,40 @@ def tfim_circuit(n, J=1.0, h=1.0, dt=0.05, steps=1, order=2, periodic=True):
     else:
         raise ValueError("order must be 1 or 2")
     return qc
+
+
+def _step_unitary(n, J, h, dt, order, periodic):
+    from qiskit.quantum_info import Operator
+    return Operator(tfim_circuit(n, J, h, dt, 1, order, periodic)).data
+
+
+def trotter_curve(n, J=1.0, h=1.0, dt=0.05, steps=1, order=2, periodic=True):
+    """Noiseless Trotter observables at t = 0, dt, ..., steps*dt (statevector, small n only).
+
+    Repeats the single-step unitary, which equals the fused circuit at step boundaries.
+    Returns {"t", "Mz", "Mx", "Mzz"} as numpy arrays.
+    """
+    import numpy as np
+    from .ed import observables_ops, measure
+    ops = observables_ops(n, periodic)
+    U = _step_unitary(n, J, h, dt, order, periodic)
+    psi = np.zeros(2 ** n, dtype=complex)
+    psi[0] = 1.0
+    out = {"Mz": [], "Mx": [], "Mzz": []}
+    for s in range(steps + 1):
+        m = measure(psi, ops)
+        for k in out:
+            out[k].append(m[k])
+        if s < steps:
+            psi = U @ psi
+    out = {k: np.asarray(v) for k, v in out.items()}
+    out["t"] = np.arange(steps + 1) * dt
+    return out
+
+
+def trotter_observables(n, J=1.0, h=1.0, t=1.0, steps=1, order=2, periodic=True):
+    """Noiseless observables after `steps` Trotter steps of size t/steps (statevector)."""
+    from qiskit.quantum_info import Statevector
+    from .ed import observables_ops, measure
+    psi = Statevector(tfim_circuit(n, J, h, t / steps, steps, order, periodic)).data
+    return measure(psi, observables_ops(n, periodic))
