@@ -6,3 +6,4 @@ __pycache__/
 *.token
 results/figs/*
 !results/figs/compare_*.png
+!results/figs/mpf_zne_noisy_*.png

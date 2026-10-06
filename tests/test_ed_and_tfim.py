@@ -50,3 +50,10 @@ def test_extrapolators_recover_known_decay():
     vals = [0.8 * np.exp(-0.1 * x) for x in lams]
     assert exponential(lams, vals, asymptote=0.0) == pytest.approx(0.8, abs=1e-6)
     assert abs(linear(lams, vals) - 0.8) > abs(richardson(lams, vals) - 0.8)
+
+
+def test_exponential_guard_falls_back_when_fit_explodes():
+    # near-zero, non-monotone data: an unconstrained exponential fit can run off to large values
+    lams, vals = [1, 3, 5], [0.02, -0.01, 0.015]
+    est = exponential(lams, vals)
+    assert abs(est) <= 1.0

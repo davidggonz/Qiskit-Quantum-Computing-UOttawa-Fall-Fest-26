@@ -18,13 +18,23 @@ def richardson(lams, vals):
     return float(np.polyval(np.polyfit(lams, vals, len(lams) - 1), 0.0))
 
 
-def exponential(lams, vals, asymptote=None):
+def exponential(lams, vals, asymptote=None, bound=1.0):
     """Fit a*exp(-b*lam) + c (c fixed to `asymptote` if given); evaluate at lam=0.
-    Falls back to `linear` if the fit does not converge."""
+
+    Falls back to `linear` if the fit does not converge. With 3 points the free fit can
+    explode when the values are near zero or not monotone; if |estimate| > `bound` (all our
+    observables Zavg, Mzz, Mz lie in [-1, 1]) it falls back to `richardson`, then `linear`.
+    Pass bound=None to disable the guard.
+    """
     lams, vals = np.asarray(lams, float), np.asarray(vals, float)
     with warnings.catch_warnings():  # 3 points / 3 parameters: covariance is undefined, fine
         warnings.simplefilter("ignore", OptimizeWarning)
-        return _exponential(lams, vals, asymptote)
+        est = _exponential(lams, vals, asymptote)
+    if bound is not None and not abs(est) <= bound:
+        est = richardson(lams, vals)
+        if not abs(est) <= bound:
+            est = linear(lams, vals)
+    return est
 
 
 def _exponential(lams, vals, asymptote):
