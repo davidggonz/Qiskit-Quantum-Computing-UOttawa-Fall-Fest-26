@@ -3,8 +3,10 @@
 All take noise factors `lams` (e.g. [1, 3, 5]) and measured values `vals` and
 return the zero-noise estimate.  The previous report used `linear` only.
 """
+import warnings
+
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import OptimizeWarning, curve_fit
 
 
 def linear(lams, vals):
@@ -20,6 +22,12 @@ def exponential(lams, vals, asymptote=None):
     """Fit a*exp(-b*lam) + c (c fixed to `asymptote` if given); evaluate at lam=0.
     Falls back to `linear` if the fit does not converge."""
     lams, vals = np.asarray(lams, float), np.asarray(vals, float)
+    with warnings.catch_warnings():  # 3 points / 3 parameters: covariance is undefined, fine
+        warnings.simplefilter("ignore", OptimizeWarning)
+        return _exponential(lams, vals, asymptote)
+
+
+def _exponential(lams, vals, asymptote):
     try:
         if asymptote is None:
             f = lambda x, a, b, c: a * np.exp(-b * x) + c

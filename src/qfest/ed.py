@@ -76,3 +76,10 @@ def quench(n, times, J=1.0, h=1.0, periodic=True, psi0=None):
         for k in ("Mz", "Mx", "Mzz"):
             out[k].append(m[k])
     return {k: np.asarray(v) for k, v in out.items()}
+
+
+def quench_state(n, t, J=1.0, h=1.0, periodic=True):
+    """Exact state exp(-iHt)|0...0> (numpy array, Qiskit qubit order)."""
+    psi0 = np.zeros(2 ** n, dtype=complex)
+    psi0[0] = 1.0
+    return expm_multiply(-1j * float(t) * hamiltonian(n, J, h, periodic), psi0)
