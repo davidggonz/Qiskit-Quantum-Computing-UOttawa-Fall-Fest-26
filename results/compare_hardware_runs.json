@@ -1,0 +1,212 @@
+{
+  "experiment": "compare_hardware_runs",
+  "backend": "aer_backend_fake_marrakesh",
+  "params": {
+    "boutaina": "/home/user/starswithboutaina/repo/results_canonical/tfim_results.json",
+    "ring12": true,
+    "h": 0.5,
+    "dt": 0.05,
+    "steps": 20,
+    "shots": 4096,
+    "seed": 42,
+    "fake": "marrakesh"
+  },
+  "method": "trotter2_zne",
+  "observables": {},
+  "extra": {
+    "runs": [
+      {
+        "label": "Boutaina: N=6 ring, auto layout (SWAPs)",
+        "n": 6,
+        "periodic": true,
+        "exact": 0.8680534952109827,
+        "ideal": null,
+        "levels": [
+          {
+            "optimization_level": 0,
+            "depth": 875,
+            "two_qubit": 480,
+            "Zavg": 0.41837565104166663,
+            "abs_error": 0.4496778441693161
+          },
+          {
+            "optimization_level": 1,
+            "depth": 718,
+            "two_qubit": 474,
+            "Zavg": 0.4600423177083333,
+            "abs_error": 0.4080111775026494
+          },
+          {
+            "optimization_level": 2,
+            "depth": 620,
+            "two_qubit": 474,
+            "Zavg": 0.45174153645833326,
+            "abs_error": 0.4163119587526495
+          },
+          {
+            "optimization_level": 3,
+            "depth": 882,
+            "two_qubit": 460,
+            "Zavg": 0.4510091145833332,
+            "abs_error": 0.41704438062764954
+          }
+        ],
+        "zne": {
+          "factors": [
+            1.0,
+            3.0,
+            5.0
+          ],
+          "raw": [
+            0.44873046875,
+            0.14794921874999997,
+            0.04174804687500001
+          ],
+          "mitigated": {
+            "linear": 0.5180460611979165,
+            "richardson": 0.6720886230468739,
+            "exponential": 0.7662469042106933
+          }
+        }
+      },
+      {
+        "label": "Port: N=6 chain, zero-SWAP layout",
+        "n": 6,
+        "periodic": false,
+        "layout": [
+          12,
+          13,
+          14,
+          15,
+          19,
+          35
+        ],
+        "exact": 0.8007693002455849,
+        "ideal": 0.8013612136188246,
+        "levels": [
+          {
+            "optimization_level": 0,
+            "depth": 588,
+            "two_qubit": 200,
+            "extra_two_qubit": 0,
+            "Zavg": 0.7091471354166669,
+            "abs_error": 0.09162216482891805
+          },
+          {
+            "optimization_level": 1,
+            "depth": 407,
+            "two_qubit": 200,
+            "extra_two_qubit": 0,
+            "Zavg": 0.7220052083333331,
+            "abs_error": 0.07876409191225175
+          },
+          {
+            "optimization_level": 2,
+            "depth": 346,
+            "two_qubit": 200,
+            "extra_two_qubit": 0,
+            "Zavg": 0.7085774739583334,
+            "abs_error": 0.09219182628725153
+          },
+          {
+            "optimization_level": 3,
+            "depth": 345,
+            "two_qubit": 200,
+            "extra_two_qubit": 0,
+            "Zavg": 0.7059733072916664,
+            "abs_error": 0.0947959929539185
+          }
+        ],
+        "zne": {
+          "factors": [
+            1.0,
+            3.0,
+            5.0
+          ],
+          "raw": [
+            0.712646484375,
+            0.5908203125,
+            0.48852539062499994
+          ],
+          "mitigated": {
+            "linear": 0.7654215494791665,
+            "richardson": 0.7808837890624997,
+            "exponential": 0.7820228027648652
+          }
+        }
+      },
+      {
+        "label": "Port: N=12 ring, zero-SWAP layout",
+        "n": 12,
+        "periodic": true,
+        "layout": [
+          18,
+          31,
+          32,
+          33,
+          34,
+          35,
+          19,
+          15,
+          14,
+          13,
+          12,
+          11
+        ],
+        "exact": 0.8680534937953422,
+        "ideal": 0.8687176253380533,
+        "levels": [
+          {
+            "optimization_level": 0,
+            "depth": 588,
+            "two_qubit": 480,
+            "extra_two_qubit": 0,
+            "Zavg": 0.703653971354167,
+            "abs_error": 0.16439952244117528
+          },
+          {
+            "optimization_level": 1,
+            "depth": 407,
+            "two_qubit": 480,
+            "extra_two_qubit": 0,
+            "Zavg": 0.6992187500000001,
+            "abs_error": 0.16883474379534213
+          },
+          {
+            "optimization_level": 2,
+            "depth": 345,
+            "two_qubit": 480,
+            "extra_two_qubit": 0,
+            "Zavg": 0.6944986979166665,
+            "abs_error": 0.17355479587867573
+          },
+          {
+            "optimization_level": 3,
+            "depth": 345,
+            "two_qubit": 480,
+            "extra_two_qubit": 0,
+            "Zavg": 0.6945800781249998,
+            "abs_error": 0.17347341567034247
+          }
+        ],
+        "zne": {
+          "factors": [
+            1.0,
+            3.0,
+            5.0
+          ],
+          "raw": [
+            0.6992187500000001,
+            0.48799641927083326,
+            0.36124674479166685
+          ],
+          "mitigated": {
+            "linear": 0.7696329752604165,
+            "richardson": 0.8365071614583328,
+            "exponential": 0.8528658916177876
+          }
+        }
+      }
+    ]
+  }
+}
