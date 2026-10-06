@@ -4,4 +4,5 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 *.token
-results/figs/
+results/figs/*
+!results/figs/compare_*.png
