@@ -513,25 +513,48 @@ def zne_extrapolate(noise_factors: Sequence[float], values: Sequence[float],
     return float(EXTRAPOLATORS[method](list(noise_factors), list(values)))
 
 
-def fold_two_qubit_gates(circuit, scale: int):
-    """Local unitary folding: every 2q gate G -> G (G† G)^((scale-1)/2).
+FOLDABLE = ("cx", "cz", "ecr", "rzz")
+
+
+def fold_two_qubit_gates(circuit, scale: float):
+    """Local unitary folding of 2q gates: G -> G (G† G)^n_i, scale = 1 + 2·mean(n_i).
+
+    Odd integer scales fold every gate equally. Other scales (e.g. 2, 4) are
+    partial folds: every gate gets floor((scale-1)/2) pairs and an evenly spaced
+    subset gets one more, so the 2q-gate count is scale × the original (exactly
+    when the gate count allows, otherwise to the nearest gate; see
+    `effective_scale`).
 
     Apply AFTER transpiling to the target basis (cz/ecr/cx/rzz); before
     transpiling the TFIM circuit only has rzz, and repeating a non-self-inverse
     rzz would change the unitary. scale=1 -> identity.
     """
+    if scale < 1:
+        raise ValueError("scale must be >= 1")
     if scale == 1:
         return circuit.copy()
-    assert scale % 2 == 1, "scale must be odd"
+    idx = [i for i, inst in enumerate(circuit.data)
+           if len(inst.qubits) == 2 and inst.operation.name in FOLDABLE]
+    base, frac = divmod((scale - 1) / 2, 1)
+    n_extra = int(round(frac * len(idx)))
+    # evenly spaced gates get the extra pair, spreading the added noise over the circuit
+    extra = {idx[int(j * len(idx) / n_extra)] for j in range(n_extra)} if n_extra else set()
     folded = circuit.copy_empty_like()
-    for inst in circuit.data:
+    for i, inst in enumerate(circuit.data):
         folded.append(inst)
-        if len(inst.qubits) == 2 and inst.operation.name in ("cx", "cz", "ecr", "rzz"):
-            for _ in range((scale - 1) // 2):
+        if len(inst.qubits) == 2 and inst.operation.name in FOLDABLE:
+            for _ in range(int(base) + (i in extra)):
                 folded.append(inst.operation.inverse(), inst.qubits)
                 folded.append(inst.operation, inst.qubits)
     folded.metadata = dict(getattr(circuit, "metadata", {}) or {})
     return folded
+
+
+def effective_scale(original, folded) -> float:
+    """Actual noise scale of a folded circuit: ratio of foldable 2q-gate counts."""
+    count = lambda qc: sum(1 for inst in qc.data
+                           if len(inst.qubits) == 2 and inst.operation.name in FOLDABLE)
+    return count(folded) / max(count(original), 1)
 
 
 def run_with_zne_aer(circuit, observables: Dict[str, Any], shots: int = 4096,

@@ -8,15 +8,22 @@ Three steps, so the QPU job and the analysis are decoupled:
 
 Physics: N = 12 periodic ring (0-SWAP heavy-hex embedding), quench from |0...0>,
 2nd-order Trotter (dt = 0.1), observables Mz (RMS), Mx, Mzz. ZNE by local folding of
-every 2q gate (G -> G (G† G)^k, lambda = 1, 3, 5) on the transpiled circuit, then the
-team's extrapolators (linear, richardson, exponential) plus exp_fixed: exponential with
-its asymptote pinned to the fully depolarized value (Mz -> sqrt(1/N), Mx, Mzz -> 0). Runtime adds TREX readout
+2q gates on the transpiled circuit (G -> G (G† G)^k; default lambda = 1, 2, 3, 4, 5, where
+the even factors are partial folds of an evenly spaced subset of gates), then:
+  linear       least-squares line
+  richardson   least-squares quadratic (= textbook Richardson when there are 3 factors)
+  exponential  a*exp(-b*lam) + c, c free
+  exp_fixed    a*exp(-b*lam) + c, c pinned to the fully depolarized value
+               (Mz -> sqrt(1/N), Mx, Mzz -> 0)
+Extrapolation uses each circuit's measured 2q-gate ratio as lambda. With 5 factors both
+exponential fits have spare degrees of freedom, so analyze reports a chi2 for each. Runtime adds TREX readout
 mitigation, Pauli twirling and dynamical decoupling; Runtime's own ZNE stays OFF so the
 folding is ours and directly comparable with the simulation.
 
 Examples:
   python experiments/zne_time_sweep_ibm.py plan
   python experiments/zne_time_sweep_ibm.py submit --backend ibm_fez
+  python experiments/zne_time_sweep_ibm.py submit --backend ibm_fez --lambdas 1,3,5   # the original 3-factor run
   python experiments/zne_time_sweep_ibm.py analyze --job-id <id>
   python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec.json
   python experiments/zne_time_sweep_ibm.py submit --fake      # local test, no token, no QPU
@@ -42,11 +49,10 @@ from qfest.extrapolation import EXTRAPOLATORS  # noqa: E402
 from qfest.results import save  # noqa: E402
 
 N, J, DT = 12, 1.0, 0.1
-LAMS = [1, 3, 5]
+DEFAULT_LAMS = [1, 2, 3, 4, 5]
 METHODS = ["linear", "richardson", "exponential", "exp_fixed"]
 # Fully depolarized limits: (Σz)²/N² -> 1/N so Mz -> sqrt(1/N); <X>, <ZZ> -> 0.
-# exp_fixed pins the exponential's asymptote there: 2 parameters from 3 noise
-# factors, so a goodness-of-fit (chi2, 1 dof) exists, unlike the free 3-parameter fit.
+# exp_fixed pins the exponential's asymptote there (2 parameters instead of 3).
 ASYMPTOTE = {"Mz": float(np.sqrt(1.0 / N)), "Mx": 0.0, "Mzz": 0.0}
 LABEL = {"raw": "raw (λ=1)", "linear": "linear", "richardson": "richardson",
          "exponential": "exponential (free asymptote)", "exp_fixed": "exponential (fixed asymptote)"}
@@ -63,22 +69,31 @@ COL = {"raw": "#52514e", "linear": "#eb6834", "richardson": "#1baf7a", "exponent
        "exp_fixed": "#4a3aa7"}
 
 
-def extrapolate(method, k, vals):
+def extrapolate(method, k, lams, vals):
+    lams, vals = np.asarray(lams, float), np.asarray(vals, float)
     if method == "exp_fixed":
-        return float(EXTRAPOLATORS["exponential"](LAMS, vals, asymptote=ASYMPTOTE[k]))
-    return float(EXTRAPOLATORS[method](LAMS, vals))
+        return float(EXTRAPOLATORS["exponential"](lams, vals, asymptote=ASYMPTOTE[k]))
+    if method == "richardson":  # quadratic least squares; exact Richardson for 3 factors
+        return float(np.polyval(np.polyfit(lams, vals, min(2, len(lams) - 1)), 0.0))
+    return float(EXTRAPOLATORS[method](lams, vals))
 
 
-def fixed_exp_chi2(k, vals, errs):
-    """chi2 (1 dof) of a*exp(-b*lam) + asymptote through the 3 noise factors."""
+def exp_chi2(k, lams, vals, errs, fixed):
+    """(chi2, dof) of the exponential fit; dof = n - 2 (fixed asymptote) or n - 3 (free)."""
     from scipy.optimize import curve_fit
-    lam = np.asarray(LAMS, float)
-    f = lambda x, a, b: a * np.exp(-b * x) + ASYMPTOTE[k]
+    lam, vals = np.asarray(lams, float), np.asarray(vals, float)
+    if fixed:
+        f, p0 = (lambda x, a, b: a * np.exp(-b * x) + ASYMPTOTE[k]), [vals[0] - ASYMPTOTE[k], 0.3]
+    else:
+        f, p0 = (lambda x, a, b, c: a * np.exp(-b * x) + c), [vals[0] - vals[-1], 0.3, vals[-1]]
+    dof = len(lam) - len(p0)
+    if dof < 1:
+        return float("nan"), dof
     try:
-        p, _ = curve_fit(f, lam, vals, p0=[vals[0] - ASYMPTOTE[k], 0.3], maxfev=10000)
+        p, _ = curve_fit(f, lam, vals, p0=p0, maxfev=20000)
     except (RuntimeError, ValueError):
-        return float("nan")
-    return float(np.sum(((vals - f(lam, *p)) / np.maximum(errs, 1e-9)) ** 2))
+        return float("nan"), dof
+    return float(np.sum(((vals - f(lam, *p)) / np.maximum(errs, 1e-9)) ** 2)), dof
 
 
 def get_backend(args):
@@ -91,7 +106,7 @@ def get_backend(args):
     return service.backend(args.backend) if args.backend else hw.select_backend(service)
 
 
-def build_pubs(backend, h, times):
+def build_pubs(backend, h, times, lams):
     """One PUB per (t, lambda): folded ISA circuit + the 3 observables mapped to its layout."""
     from qiskit import transpile
     layout = hw.select_best_qubits(backend, N, periodic=True)
@@ -102,11 +117,12 @@ def build_pubs(backend, h, times):
         base = transpile(hw.build_tfim_circuit(N, J, h, DT, steps, add_measure=False), backend,
                          optimization_level=1, initial_layout=layout, seed_transpiler=42)
         isa_obs = [obs[k].apply_layout(base.layout) for k in EST_KEYS]
-        for lam in LAMS:
+        for lam in lams:
             qc = hw.fold_two_qubit_gates(base, lam)
             pubs.append((qc, isa_obs))
             ops = qc.count_ops()
             index.append({"t": t, "steps": steps, "lambda": lam,
+                          "lambda_eff": hw.effective_scale(base, qc),
                           "two_qubit_gates": hw.two_qubit_count(ops), "depth": qc.depth()})
     return pubs, index, layout
 
@@ -114,11 +130,14 @@ def build_pubs(backend, h, times):
 def cmd_plan(args):
     backend = get_backend(args)
     hw.backend_properties_dict(backend)
-    pubs, index, layout = build_pubs(backend, args.h, args.times)
+    pubs, index, layout = build_pubs(backend, args.h, args.times, args.lambdas)
     print(f"\nlayout (12-ring): {layout}")
-    print(f"{'t':>5} {'lam':>4} {'2q gates':>9} {'depth':>6}")
+    print(f"{'t':>5} {'lam':>4} {'lam_eff':>8} {'2q gates':>9} {'depth':>6}")
     for r in index:
-        print(f"{r['t']:>5} {r['lambda']:>4} {r['two_qubit_gates']:>9} {r['depth']:>6}")
+        print(f"{r['t']:>5} {r['lambda']:>4g} {r['lambda_eff']:>8.3f} {r['two_qubit_gates']:>9} {r['depth']:>6}")
+    base_2q = sum(r["two_qubit_gates"] / r["lambda_eff"] for r in index if r["lambda"] == args.lambdas[0])
+    rel = sum(r["two_qubit_gates"] for r in index) / (9 * base_2q)  # 1 + 3 + 5 = 9
+    print(f"\nTotal 2q gates relative to the 3-factor (1,3,5) job: {rel:.2f}x (rough QPU-time ratio)")
     print(f"\n{len(pubs)} circuits x {args.shots} shots, 3 observables each, in ONE job.")
     print("Rule of thumb: above ~1500 two-qubit gates the raw signal is close to noise.")
 
@@ -126,7 +145,7 @@ def cmd_plan(args):
 def cmd_submit(args):
     from qiskit_ibm_runtime import EstimatorV2
     backend = get_backend(args)
-    pubs, index, layout = build_pubs(backend, args.h, args.times)
+    pubs, index, layout = build_pubs(backend, args.h, args.times, args.lambdas)
     opts = {
         "default_shots": args.shots,
         "resilience_level": 1,                       # TREX readout mitigation
@@ -140,7 +159,7 @@ def cmd_submit(args):
     job_id = job.job_id()
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     meta = {"job_id": job_id, "backend": backend.name, "fake": args.fake, "h": args.h,
-            "times": args.times, "lambdas": LAMS, "shots": args.shots, "layout": layout,
+            "times": args.times, "lambdas": args.lambdas, "shots": args.shots, "layout": layout,
             "index": index, "options": opts,
             "submitted": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
     path = JOBS_DIR / f"zne_sweep_h{args.h:g}_{job_id}.json"
@@ -196,6 +215,12 @@ def cmd_analyze(args):
         evs, stds = load_result(args.job_id, meta)
     times, h = meta["times"], meta["h"]
     exact = exact_at(times, h)
+    # optional: analyze only a subset of the job's noise factors (e.g. 1,3,5 of a 1..5 job)
+    keep = [j for j, r in enumerate(meta["index"])
+            if not args.subset or any(abs(r["lambda"] - l) < 1e-9 for l in args.subset)]
+    meta = dict(meta, index=[meta["index"][j] for j in keep])
+    evs, stds = evs[keep], stds[keep]
+    lam_nominal = sorted({r["lambda"] for r in meta["index"]})
     rng = np.random.default_rng(0)
 
     def to_obs(ev):  # columns Mz2, Mx, Mzz -> Mz, Mx, Mzz
@@ -204,33 +229,38 @@ def cmd_analyze(args):
     # Monte Carlo over the reported standard errors -> error bars on every estimator
     n_mc = 300
     agg = {m: {k: {"mean": [], "std": [], "abs_err": []} for k in KEYS} for m in ["raw"] + METHODS}
-    chi2 = {k: [] for k in KEYS}
+    chi2 = {"exponential": {k: [] for k in KEYS}, "exp_fixed": {k: [] for k in KEYS}}
     for i, t in enumerate(times):
         rows = [j for j, r in enumerate(meta["index"]) if r["t"] == t]
+        lams = [meta["index"][j].get("lambda_eff", meta["index"][j]["lambda"]) for j in rows]
         samples = to_obs(evs[rows][None] + stds[rows][None] * rng.standard_normal((n_mc, len(rows), 3)))
         central = to_obs(evs[rows])
         for c, k in enumerate(KEYS):
             ests = {"raw": (central[0, c], samples[:, 0, c])}
             for m in METHODS:
-                ests[m] = (extrapolate(m, k, central[:, c]),
-                           np.array([extrapolate(m, k, s[:, c]) for s in samples]))
-            chi2[k].append(fixed_exp_chi2(k, central[:, c], samples[:, :, c].std(axis=0)))
+                ests[m] = (extrapolate(m, k, lams, central[:, c]),
+                           np.array([extrapolate(m, k, lams, s[:, c]) for s in samples]))
+            errs = samples[:, :, c].std(axis=0)
+            for m in chi2:
+                chi2[m][k].append(exp_chi2(k, lams, central[:, c], errs, fixed=(m == "exp_fixed")))
             for m, (val, mc) in ests.items():
                 agg[m][k]["mean"].append(float(val))
                 agg[m][k]["std"].append(float(np.std(mc)))
                 agg[m][k]["abs_err"].append(float(abs(val - exact[k][i])))
 
     tag = f"h{h:g}_{meta['backend']}"
+    if lam_nominal != [1, 3, 5]:  # keep the original 3-factor file name, suffix the others
+        tag += "_lam" + "-".join(f"{l:g}" for l in lam_nominal)
     save({
         "experiment": f"zne_time_sweep_ibm_{tag}",
         "backend": f"ibm_{meta['backend']}" if not meta["fake"] else "fake_local",
         "params": {"n": N, "J": J, "h": h, "dt": DT, "order": 2, "periodic": True,
-                   "layout": meta["layout"], "noise_factors": LAMS, "shots": meta["shots"]},
+                   "layout": meta["layout"], "noise_factors": lam_nominal, "shots": meta["shots"]},
         "method": "zne_" + "|".join(METHODS),
         "t": times,
         "observables": {"exact": {k: exact[k].tolist() for k in KEYS}, "estimators": agg},
         "extra": {"job_id": args.job_id, "index": meta["index"], "options": meta["options"],
-                  "asymptotes_exp_fixed": ASYMPTOTE, "chi2_exp_fixed_1dof": chi2,
+                  "asymptotes_exp_fixed": ASYMPTOTE, "chi2_and_dof": chi2,
                   "raw_evs": evs.tolist(), "raw_stds": stds.tolist()},
     }, f"zne_time_sweep_ibm_{tag}")
 
@@ -255,7 +285,7 @@ def cmd_analyze(args):
     axes[1, 0].set_ylabel("|estimate − ED|")
     axes[0, 0].legend(fontsize=8, frameon=False)
     fig.suptitle(f"ZNE vs time on {meta['backend']} (job {args.job_id[:12]}…), N = {N} ring, h/J = {h:g}, "
-                 f"dt = {DT}, {meta['shots']} shots, TREX + twirling + DD, λ = 1, 3, 5\n"
+                 f"dt = {DT}, {meta['shots']} shots, TREX + twirling + DD, λ = {', '.join(f'{l:g}' for l in lam_nominal)}\n"
                  f"exponential (fixed asymptote): Mz → √(1/N), Mx, Mzz → 0")
     fig.tight_layout()
     out = ROOT / "results" / "figs"
@@ -269,7 +299,9 @@ def cmd_analyze(args):
         cells = {k: [f"{e:.3f}({e / max(s, 1e-12):.1f}σ)" for e, s in zip(agg[m][k]["abs_err"], agg[m][k]["std"])]
                  for k in KEYS}
         print(f"{m:>12} {mean_err:>10.4f}  {cells}")
-    print("chi2 (1 dof) of the fixed-asymptote fit:", {k: [round(x, 1) for x in v] for k, v in chi2.items()})
+    for m, label in (("exponential", "free asymptote"), ("exp_fixed", "fixed asymptote")):
+        print(f"chi2/dof, exponential ({label}):",
+              {k: [f"{x:.1f}/{d}" if d > 0 else "n/a" for x, d in v] for k, v in chi2[m].items()})
 
 
 def main():
@@ -281,6 +313,11 @@ def main():
                     type=lambda s: [float(x) for x in s.split(",")])
     ap.add_argument("--shots", type=int, default=4000)
     ap.add_argument("--job-id", default="")
+    ap.add_argument("--lambdas", default=",".join(str(l) for l in DEFAULT_LAMS),
+                    type=lambda s: [float(x) for x in s.split(",")],
+                    help="noise factors for plan/submit (default 1,2,3,4,5)")
+    ap.add_argument("--subset", default="", type=lambda s: [float(x) for x in s.split(",")] if s else [],
+                    help="analyze: use only these noise factors of the job (e.g. 1,3,5)")
     ap.add_argument("--fake", action="store_true", help="FakeMarrakesh local mode (testing)")
     ap.add_argument("--from-json", default="",
                     help="analyze: re-analyze a saved results/zne_time_sweep_ibm_*.json (no QPU/cache needed)")
