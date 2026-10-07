@@ -109,7 +109,7 @@ of each job is fixed overhead.
 
 ## 6. Comparison with the previous project [1]
 
-| Topic | Previous (Quantinuum H2) | This work (IBM `ibm_quebec`) |
+| Topic | Previous (Quantinuum H2 emulators: H2-1LE, H2-Emulator) | This work (IBM `ibm_quebec`) |
 |---|---|---|
 | ZNE extrapolation | Linear, λ = 1, 3, 5; "begins to overcorrect after t ≈ 1.5" | Exponential stays within ~0.03 through t = 2, at 2 field strengths, 3 runs |
 | Linear ZNE (same circuits) | Main method | Removes 17–26% of error; 7–45σ biased at t ≥ 1.5 |
