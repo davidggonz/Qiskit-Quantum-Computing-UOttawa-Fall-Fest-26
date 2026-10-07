@@ -9,7 +9,8 @@ Three steps, so the QPU job and the analysis are decoupled:
 Physics: N = 12 periodic ring (0-SWAP heavy-hex embedding), quench from |0...0>,
 2nd-order Trotter (dt = 0.1), observables Mz (RMS), Mx, Mzz. ZNE by local folding of
 every 2q gate (G -> G (G† G)^k, lambda = 1, 3, 5) on the transpiled circuit, then the
-team's extrapolators (linear, richardson, exponential). Runtime adds TREX readout
+team's extrapolators (linear, richardson, exponential) plus exp_fixed: exponential with
+its asymptote pinned to the fully depolarized value (Mz -> sqrt(1/N), Mx, Mzz -> 0). Runtime adds TREX readout
 mitigation, Pauli twirling and dynamical decoupling; Runtime's own ZNE stays OFF so the
 folding is ours and directly comparable with the simulation.
 
@@ -17,6 +18,7 @@ Examples:
   python experiments/zne_time_sweep_ibm.py plan
   python experiments/zne_time_sweep_ibm.py submit --backend ibm_fez
   python experiments/zne_time_sweep_ibm.py analyze --job-id <id>
+  python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec.json
   python experiments/zne_time_sweep_ibm.py submit --fake      # local test, no token, no QPU
 """
 import argparse
@@ -41,7 +43,13 @@ from qfest.results import save  # noqa: E402
 
 N, J, DT = 12, 1.0, 0.1
 LAMS = [1, 3, 5]
-METHODS = ["linear", "richardson", "exponential"]
+METHODS = ["linear", "richardson", "exponential", "exp_fixed"]
+# Fully depolarized limits: (Σz)²/N² -> 1/N so Mz -> sqrt(1/N); <X>, <ZZ> -> 0.
+# exp_fixed pins the exponential's asymptote there: 2 parameters from 3 noise
+# factors, so a goodness-of-fit (chi2, 1 dof) exists, unlike the free 3-parameter fit.
+ASYMPTOTE = {"Mz": float(np.sqrt(1.0 / N)), "Mx": 0.0, "Mzz": 0.0}
+LABEL = {"raw": "raw (λ=1)", "linear": "linear", "richardson": "richardson",
+         "exponential": "exponential (free asymptote)", "exp_fixed": "exponential (fixed asymptote)"}
 KEYS = ["Mz", "Mx", "Mzz"]
 EST_KEYS = ["Mz2", "Mx", "Mzz"]
 JOBS_DIR = ROOT / "results" / "ibm_jobs"
@@ -51,7 +59,26 @@ def exact_at(times, h):
     return {k: np.array([p[k][0] for p in pts]) for k in KEYS}
 
 
-COL = {"raw": "#52514e", "linear": "#eb6834", "richardson": "#1baf7a", "exponential": "#2a78d6"}
+COL = {"raw": "#52514e", "linear": "#eb6834", "richardson": "#1baf7a", "exponential": "#2a78d6",
+       "exp_fixed": "#4a3aa7"}
+
+
+def extrapolate(method, k, vals):
+    if method == "exp_fixed":
+        return float(EXTRAPOLATORS["exponential"](LAMS, vals, asymptote=ASYMPTOTE[k]))
+    return float(EXTRAPOLATORS[method](LAMS, vals))
+
+
+def fixed_exp_chi2(k, vals, errs):
+    """chi2 (1 dof) of a*exp(-b*lam) + asymptote through the 3 noise factors."""
+    from scipy.optimize import curve_fit
+    lam = np.asarray(LAMS, float)
+    f = lambda x, a, b: a * np.exp(-b * x) + ASYMPTOTE[k]
+    try:
+        p, _ = curve_fit(f, lam, vals, p0=[vals[0] - ASYMPTOTE[k], 0.3], maxfev=10000)
+    except (RuntimeError, ValueError):
+        return float("nan")
+    return float(np.sum(((vals - f(lam, *p)) / np.maximum(errs, 1e-9)) ** 2))
 
 
 def get_backend(args):
@@ -144,12 +171,29 @@ def load_result(job_id, meta):
     return evs, stds
 
 
+def load_from_results_json(path):
+    """Rebuild (meta, evs, stds) from a results/zne_time_sweep_ibm_*.json written by analyze,
+    so the analysis can be redone without the job cache or QPU access."""
+    d = json.loads(pathlib.Path(path).read_text())
+    ex = d["extra"]
+    is_ibm = d["backend"].startswith("ibm_")
+    meta = {"backend": d["backend"][len("ibm_"):] if is_ibm else "fake_local", "fake": not is_ibm,
+            "h": d["params"]["h"], "times": d["t"], "shots": d["params"]["shots"],
+            "layout": d["params"]["layout"], "index": ex["index"], "options": ex["options"],
+            "job_id": ex["job_id"]}
+    return meta, np.array(ex["raw_evs"]), np.array(ex["raw_stds"])
+
+
 def cmd_analyze(args):
-    metas = sorted(JOBS_DIR.glob(f"zne_sweep_*_{args.job_id}.json"))
-    if not metas:
-        sys.exit(f"no metadata for job {args.job_id} in {JOBS_DIR}")
-    meta = json.loads(metas[0].read_text())
-    evs, stds = load_result(args.job_id, meta)
+    if args.from_json:
+        meta, evs, stds = load_from_results_json(args.from_json)
+        args.job_id = meta["job_id"]
+    else:
+        metas = sorted(JOBS_DIR.glob(f"zne_sweep_*_{args.job_id}.json"))
+        if not metas:
+            sys.exit(f"no metadata for job {args.job_id} in {JOBS_DIR} (or pass --from-json)")
+        meta = json.loads(metas[0].read_text())
+        evs, stds = load_result(args.job_id, meta)
     times, h = meta["times"], meta["h"]
     exact = exact_at(times, h)
     rng = np.random.default_rng(0)
@@ -160,6 +204,7 @@ def cmd_analyze(args):
     # Monte Carlo over the reported standard errors -> error bars on every estimator
     n_mc = 300
     agg = {m: {k: {"mean": [], "std": [], "abs_err": []} for k in KEYS} for m in ["raw"] + METHODS}
+    chi2 = {k: [] for k in KEYS}
     for i, t in enumerate(times):
         rows = [j for j, r in enumerate(meta["index"]) if r["t"] == t]
         samples = to_obs(evs[rows][None] + stds[rows][None] * rng.standard_normal((n_mc, len(rows), 3)))
@@ -167,8 +212,9 @@ def cmd_analyze(args):
         for c, k in enumerate(KEYS):
             ests = {"raw": (central[0, c], samples[:, 0, c])}
             for m in METHODS:
-                f = EXTRAPOLATORS[m]
-                ests[m] = (f(LAMS, central[:, c]), np.array([f(LAMS, s[:, c]) for s in samples]))
+                ests[m] = (extrapolate(m, k, central[:, c]),
+                           np.array([extrapolate(m, k, s[:, c]) for s in samples]))
+            chi2[k].append(fixed_exp_chi2(k, central[:, c], samples[:, :, c].std(axis=0)))
             for m, (val, mc) in ests.items():
                 agg[m][k]["mean"].append(float(val))
                 agg[m][k]["std"].append(float(np.std(mc)))
@@ -184,6 +230,7 @@ def cmd_analyze(args):
         "t": times,
         "observables": {"exact": {k: exact[k].tolist() for k in KEYS}, "estimators": agg},
         "extra": {"job_id": args.job_id, "index": meta["index"], "options": meta["options"],
+                  "asymptotes_exp_fixed": ASYMPTOTE, "chi2_exp_fixed_1dof": chi2,
                   "raw_evs": evs.tolist(), "raw_stds": stds.tolist()},
     }, f"zne_time_sweep_ibm_{tag}")
 
@@ -193,7 +240,7 @@ def cmd_analyze(args):
         ax.plot(times, exact[k], color="#0b0b0b", lw=2, label="exact (ED)")
         for m in ["raw"] + METHODS:
             ax.errorbar(times, agg[m][k]["mean"], yerr=agg[m][k]["std"], color=COL[m], marker="o",
-                        ms=5, lw=1.5, capsize=3, label="raw (λ=1)" if m == "raw" else m)
+                        ms=5, lw=1.5, capsize=3, label=LABEL[m])
         ax.set_title(k)
         ax = axes[1, c]
         for m in ["raw"] + METHODS:
@@ -208,15 +255,21 @@ def cmd_analyze(args):
     axes[1, 0].set_ylabel("|estimate − ED|")
     axes[0, 0].legend(fontsize=8, frameon=False)
     fig.suptitle(f"ZNE vs time on {meta['backend']} (job {args.job_id[:12]}…), N = {N} ring, h/J = {h:g}, "
-                 f"dt = {DT}, {meta['shots']} shots, TREX + twirling + DD, λ = 1, 3, 5")
+                 f"dt = {DT}, {meta['shots']} shots, TREX + twirling + DD, λ = 1, 3, 5\n"
+                 f"exponential (fixed asymptote): Mz → √(1/N), Mx, Mzz → 0")
     fig.tight_layout()
     out = ROOT / "results" / "figs"
     out.mkdir(parents=True, exist_ok=True)
     p = out / f"zne_time_sweep_ibm_{tag}.png"
     fig.savefig(p, dpi=150)
     print(f"[analyze] figure: {p}")
+    print(f"\n{'method':>12} {'mean|err|':>10}  per observable: |err| (sigma) at each t")
     for m in ["raw"] + METHODS:
-        print(f"{m:>12}", {k: [round(e, 3) for e in agg[m][k]["abs_err"]] for k in KEYS})
+        mean_err = np.mean([e for k in KEYS for e in agg[m][k]["abs_err"]])
+        cells = {k: [f"{e:.3f}({e / max(s, 1e-12):.1f}σ)" for e, s in zip(agg[m][k]["abs_err"], agg[m][k]["std"])]
+                 for k in KEYS}
+        print(f"{m:>12} {mean_err:>10.4f}  {cells}")
+    print("chi2 (1 dof) of the fixed-asymptote fit:", {k: [round(x, 1) for x in v] for k, v in chi2.items()})
 
 
 def main():
@@ -229,6 +282,8 @@ def main():
     ap.add_argument("--shots", type=int, default=4000)
     ap.add_argument("--job-id", default="")
     ap.add_argument("--fake", action="store_true", help="FakeMarrakesh local mode (testing)")
+    ap.add_argument("--from-json", default="",
+                    help="analyze: re-analyze a saved results/zne_time_sweep_ibm_*.json (no QPU/cache needed)")
     args = ap.parse_args()
     {"plan": cmd_plan, "submit": cmd_submit, "analyze": cmd_analyze}[args.command](args)
 
