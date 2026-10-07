@@ -81,10 +81,16 @@ def get_service(token: Optional[str] = None, channel: Optional[str] = None,
     token = token or os.getenv("QISKIT_IBM_TOKEN", "")
     channel = channel or os.getenv("QISKIT_IBM_CHANNEL", DEFAULT_CHANNEL)
     instance = instance or os.getenv("QISKIT_IBM_INSTANCE", "") or None
-    if not token:
-        print("[backend] No QISKIT_IBM_TOKEN found — offline/Aer mode.")
-        return None
     from qiskit_ibm_runtime import QiskitRuntimeService
+    if not token:
+        # Fall back to an account saved once with QiskitRuntimeService.save_account(...)
+        try:
+            service = QiskitRuntimeService(channel=channel, instance=instance)
+            print(f"[backend] Connected with saved account (channel={channel}).")
+            return service
+        except Exception:
+            print("[backend] No QISKIT_IBM_TOKEN and no saved account — offline/Aer mode.")
+            return None
     kwargs: Dict[str, Any] = {"channel": channel, "token": token}
     if instance:
         kwargs["instance"] = instance
