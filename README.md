@@ -8,7 +8,7 @@
 - 🇲🇦 **Boutaina El Hourri** (ENSA Khouribga): Hardware lead
 - 🇱🇧 **Toufic Haddad** (University of Ottawa): Noise models and Plots
 - 🇨🇦 **Eli Levasseur** (University of Ottawa): Iceberg Circuit Simulation
-- 🇲🇺 **Harshini Gungah** (University of Mauritius): Classical baseline & Numerics
+- 🇲🇺 **Harshini Gungah** (University of Ottawa): Classical baseline & Numerics
 
 ## Introduction and objective
 
