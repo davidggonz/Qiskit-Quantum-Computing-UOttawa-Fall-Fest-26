@@ -1,132 +1,143 @@
-# TFIM on IBM Quantum Hardware — hardware.py
+# UO-Qubit
 
-Trotterized Transverse-Field Ising Model with transpilation comparison,
-hardware-aware layout, ZNE mitigation, Aer + IBM hardware execution,
-exact-diagonalization analysis. Qiskit 1.0+ (tested 2.5.2).
+**Zero-noise extrapolation of quantum magnetism on a real IBM quantum computer**
 
-## Quick start (cloud — recommended for Fall Fest)
+## Team
 
-Local Windows Smart App Control can block `qiskit._accelerate.pyd`
-(unsigned native lib). If `import qiskit` fails locally, run in Colab:
+- 🇨🇷 **David Granados** (Universidad de Costa Rica): Team Leader & Physics lead
+- 🇲🇦 **Boutaina El Hourri** (ENSA Khouribga): Hardware lead
+- 🇱🇧 **Toufic Haddad** (University of Ottawa): Noise models and Plots
+- 🇨🇦 **Eli Levasseur** (University of Ottawa): Iceberg Circuit Simulation
+- 🇲🇺 **Harshini Gungah**: Classical baseline & Numerics
 
-```python
-!pip install "qiskit[visualization]==2.5.2" "qiskit-aer==0.17.2" \
-  "qiskit-machine-learning==0.9.1" "qiskit-ibm-runtime==0.50.0" \
-  "scipy==1.18.1" "scikit-learn==1.9.1" "matplotlib==3.11.2" "pandas==3.0.6"
+## Introduction and objective
+
+Designing better energy materials, such as superconductors for efficient power grids,
+battery materials and CO₂-capture catalysts, depends on predicting how many interacting
+spins and electrons behave. Classical computers hit a wall quickly: in the previous
+challenge, exact diagonalization took 0.004 s for 4 spins and 17.5 s for 12, and was no
+longer feasible beyond that. Quantum computers are the natural tool for this problem,
+but only if their noise can be controlled.
+
+This project builds on the Quantathon CR 2026 Challenge 3 report, *Simulation of
+Materials for Next-Generation Energy Devices*. That work used the one-dimensional
+transverse-field Ising model (TFIM) as the canonical testbed for magnetic materials:
+
+$$H = -J\sum_i Z_i Z_{i+1} - h\sum_i X_i$$
+
+The first term favours aligned neighbouring spins (ferromagnetic order). The transverse
+field adds quantum fluctuations that destroy that order, and the competition produces a
+quantum phase transition at h/J = 1. The previous project simulated the time evolution
+of this model on Quantinuum's H2 emulators (H2-1LE and H2-Emulator), validated every
+circuit against exact diagonalization, and extended the workflow to the 2D Fermi–Hubbard
+model, a minimal model of high-temperature superconductors.
+
+The report also documented clear weak spots:
+
+- Its linear zero-noise extrapolation (ZNE, noise factors λ = 1, 3, 5) recovered the exact
+  result only until t ≈ 1.5, then began to overcorrect.
+- Iceberg error detection discarded up to 95% of the shots (17–42% with minimal checks).
+- The mitigated results had no reported error bars.
+
+**Objective:** obtain accurate, statistically validated TFIM dynamics on a real IBM
+quantum computer, with an error-mitigation method that keeps working at long evolution
+times.
+
+## Our approach
+
+We kept the physics and changed the way it is executed and mitigated:
+
+1. **Real hardware instead of emulators.** All results come from IBM's `ibm_quebec`
+   (Heron processor, heavy-hex lattice).
+2. **A ring that fits the chip.** The heavy-hex lattice has no closed loop shorter than
+   12 qubits, so a 12-spin periodic ring maps onto it with zero SWAP gates. Our layout
+   search picks the best of the 21 such rings on the device. For 3 Trotter steps the ring
+   needs 72 two-qubit gates, the minimum possible, against 105 with the original greedy
+   layout.
+3. **A compact circuit.** Second-order Trotter steps (Δt = 0.1) with edge-coloured ZZ
+   layers and fused X half-rotations. The circuits run from a quench out of |0…0⟩ to
+   t = 0.5–2.0 at h/J = 1 and 2. We measure Mz (RMS, as in the report), Mx and Mzz.
+4. **Layered error mitigation.**
+   - IBM Runtime error suppression: TREX readout mitigation, Pauli twirling and dynamical
+     decoupling.
+   - ZNE by folding every CZ gate, CZ → CZ (CZ†CZ)ᵏ, at five noise levels (λ = 1–5).
+     Even λ values come from partial folding.
+5. **An extrapolation that matches the physics of the noise.** Twirling turns gate errors
+   into Pauli noise, which shrinks the signal by a fixed factor per gate. We therefore fit
+   ⟨O⟩(λ) ≈ a·e^(−bλ) + c instead of a straight line, and compare it with linear and
+   Richardson extrapolation on the same data.
+6. **Statistics the previous work lacked.** We report shot-noise error bars, χ² goodness-of-fit
+   tests for every extrapolation, and run-to-run reproducibility checks.
+
+## Key results
+
+![Summary of the IBM hardware runs](results/figs/zne_summary.png)
+
+### 1. Exponential ZNE reduces the error 3.8–5× on real hardware
+
+Mean |estimate − exact| over Mz, Mx and Mzz at t = 0.5, 1.0, 1.5 and 2.0 (12 points per run):
+
+| Estimator | h/J = 1, run 1 | h/J = 1, run 2 | h/J = 2 |
+|---|---|---|---|
+| Raw (no ZNE) | 0.142 | 0.145 | 0.114 |
+| Linear ZNE (previous method) | 0.105 | 0.118 | 0.095 |
+| **Exponential ZNE (ours)** | **0.033** | **0.029** | **0.030** |
+| Reduction, raw → exponential | 4.4× | 5.0× | 3.8× |
+
+**Conclusion:** across three independent runs at two field strengths, exponential ZNE
+brings the error down to about 0.03. Linear ZNE removes only 17–26% of the error.
+
+### 2. Exponential ZNE stays accurate at long times, where linear ZNE is biased
+
+At h/J = 1, the error of linear ZNE grows with time like the raw data, from 0.034 to 0.195.
+Exponential ZNE stays between 0.021 and 0.042 through t = 2, where the most amplified
+circuit has 2400 two-qubit gates. For example, at t = 2 it gives Mz = 0.517 ± 0.027
+against the exact 0.500. Linear ZNE has small error bars but sits 7–45 standard deviations
+from the exact result at t ≥ 1.5, and it never lands above the exact value (0 of 36 points).
+
+**Conclusion:** the failure the previous project observed after t ≈ 1.5 is a property of
+the linear model, not of the hardware. An extrapolation that follows the exponential
+decay of the signal removes it.
+
+### 3. The result is validated and cheap
+
+- **Reproducible:** two runs a day apart both give 0.03. Raw values drift by 0.002–0.016
+  between runs, which we report as an extra ±0.01 uncertainty.
+- **The model fits:** with five noise levels, the exponential fit passes a χ² test
+  (χ²/dof ≤ 2.7) at 19 of 24 points.
+- **The residual is hardware noise:** at h/J = 2 the noiseless Trotter circuit is within
+  0.011 of exact diagonalization, so discretization is not the limiting factor.
+- **Low cost:** each full sweep used 39–58 s of QPU time.
+
+**Conclusion:** the improvement is statistically supported, reproducible and inexpensive.
+Our plan uses more quantum resources per experiment than the previous one (12 qubits, five
+noise levels, 4000 shots per circuit), but no shot is discarded and each experiment needs
+about one minute of real QPU time.
+
+### Limitations
+
+A floor of about 0.02–0.03 remains from noise that CZ folding does not amplify
+(single-qubit gates, idling, residual readout error). The exponential model fails its fit
+test at 5 of 24 points. The study uses one device, 12 spins and four time points, and no
+quantum advantage is claimed: 12 spins are still exactly solvable, which is what lets us
+check the results.
+
+## Repository
+
+| Path | Contents |
+|---|---|
+| `hardware.py` | Backend selection, layout search, folding, Runtime execution ([guide](docs/HARDWARE.md)) |
+| `src/qfest/` | TFIM circuits and exact diagonalization |
+| `experiments/zne_time_sweep_ibm.py` | Plan, submit and analyze the IBM hardware sweeps |
+| `experiments/plot_zne_summary.py` | Summary figures |
+| `results/` | Hardware data (JSON) and figures |
+| `docs/RESULTS.md` | Full results write-up with references |
+
+Reproduce the analysis from the saved data, without a QPU:
+
+```bash
+python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec_lam1-2-3-4-5.json
+python experiments/plot_zne_summary.py
 ```
 
-Upload `hardware.py`, then open `demo.ipynb`.
-
-## Local setup
-
-```powershell
-py -3.12 -m venv qff26
-.\qff26\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install "qiskit[visualization]==2.5.2" "qiskit-aer==0.17.2" ^
-  "qiskit-machine-learning==0.9.1" "qiskit-ibm-runtime==0.50.0" ^
-  "scipy==1.18.1" "scikit-learn==1.9.1" "matplotlib==3.11.2" "pandas==3.0.6"
-copy .env.example .env
-# edit .env with your PINQ2 token (Fall Fest shared allocation, keep private)
-```
-
-## Usage
-
-```powershell
-# Aer only (no token needed)
-python hardware.py --n 4 --steps 3 --shots 4096 --no-hardware --outdir results
-
-# With IBM hardware (reads .env)
-python hardware.py --n 4 --steps 3 --shots 4096 --outdir results
-python hardware.py --backend ibm_marrakesh --n 5 --outdir results
-```
-
-## What it does
-
-1. `get_service()` / `select_backend()` — `QiskitRuntimeService(channel, token)`,
-   prefers `ibm_marrakesh`/`ibm_fez`; prints qubits, coupling map, basis gates,
-   median 1q/2q/readout errors.
-2. `build_tfim_circuit(N,J,h,dt,steps)` — RZZ(-2J·dt) + RX(-2h·dt) Trotter layers.
-   `build_tfim_observables()` — energy + magnetization `SparsePauliOp`s.
-3. `transpile_compare()` — levels 0–3: depth, gate counts, CX-like, est. error
-   `1-Π(1-e)` from `backend.target`.
-4. `select_best_qubits()` — greedy lowest-error connected chain from
-   `backend.target` + `coupling_map`; `hardware_aware_transpile()` uses it as
-   `initial_layout` (lv3) vs default (lv1).
-5. ZNE — Runtime: `EstimatorV2(resilience_level=2, zne_mitigation=True)`;
-   Aer: manual unitary folding of CX/CZ/ECR at scales 1/3/5 + linear/exponential
-   extrapolation to zero noise.
-6. Execution — Aer `AerSimulator`/`EstimatorV2`; hardware `SamplerV2`/`EstimatorV2`
-   in a `Session`. Returns counts + expectation values.
-7. Analysis — exact magnetization via `scipy.linalg.expm` vs Aer/hardware;
-   plots `accuracy_vs_level.png`, `depth_vs_level.png`, `error_vs_mitigation.png`;
-   results in `results/tfim_results.json`.
-
-## Cost note
-
-Real QPUs queue and consume QPU-seconds. Start Aer-only, then 1 short hardware
-job (few thousand shots). Shared Fall Fest allocation: use only for event jobs.
-
-## Example Output
-
-### Console Output (Aer-only run)
-```text
-[circuit] TFIM N=4 depth=13 gates={'rx': 12, 'rzz': 9, 'measure': 4, 'barrier': 3}
-[exact] magnetization=0.958518
-[backend] No QISKIT_IBM_TOKEN found — offline/Aer mode.
-level  depth  gates    cx   est_err
-    0     13     28     0       n/a
-    1     13     28     0       n/a
-    2     13     28     0       n/a
-    3     13     28     0       n/a
-[zne-aer] raw=[0.958186, 0.958186, 0.958186] → mitigated(linear)=0.958186
-[out] JSON → results\tfim_results.json
-[out] PNG → results\accuracy_vs_level.png
-[out] PNG → results\depth_vs_level.png
-[out] PNG → results\error_vs_mitigation.png
-[done] 10.1s → results/
-```
-
-### Generated Plots
-
-| Plot | Description |
-|------|-------------|
-| `accuracy_vs_level.png` | Absolute error vs exact magnetization across optimization levels 0–3 |
-| `depth_vs_level.png` | Transpiled circuit depth vs optimization level |
-| `error_vs_mitigation.png` | Bar chart: plain Aer error vs ZNE-mitigated error |
-
-![Accuracy vs Level](results/accuracy_vs_level.png)
-![Depth vs Level](results/depth_vs_level.png)
-![Error vs Mitigation](results/error_vs_mitigation.png)
-
-### JSON Output (`results/tfim_results.json`)
-```json
-{
-  "meta": {
-    "time": "2026-10-05T15:37:57.338121+00:00",
-    "seed": 42,
-    "params": {"n": 4, "J": 1.0, "h": 0.5, "dt": 0.1, "steps": 3, "shots": 4096},
-    "versions": {"qiskit": "2.5.2", "qiskit_aer": "0.17.2", "qiskit_ibm_runtime": "0.50.0", "numpy": "2.5.3", "scipy": "1.18.1"},
-    "wall_s": 7.16
-  },
-  "exact_magnetization": 0.9585181029259411,
-  "aer_expectations": {"0": 0.958186, "1": 0.958186, "2": 0.958186, "3": 0.958186},
-  "zne_aer": {"mitigated": 0.958186, "raw": [0.958186, 0.958186, 0.958186]},
-  "analysis": {
-    "exact": 0.958518,
-    "table": [
-      {"optimization_level": 0, "depth": 13, "total_gates": 28, "cx_like": 0, "aer_value": 0.958186, "abs_error": 0.000332},
-      {"optimization_level": 1, "depth": 13, "total_gates": 28, "cx_like": 0, "aer_value": 0.958186, "abs_error": 0.000332},
-      {"optimization_level": 2, "depth": 13, "total_gates": 28, "cx_like": 0, "aer_value": 0.958186, "abs_error": 0.000332},
-      {"optimization_level": 3, "depth": 13, "total_gates": 28, "cx_like": 0, "aer_value": 0.958186, "abs_error": 0.000332},
-      {"optimization_level": "zne", "mitigated": 0.958186, "raw": [0.958186, 0.958186, 0.958186]}
-    ]
-  }
-}
-```
-
-## Files
-
-- `hardware.py` — full module + CLI
-- `demo.ipynb` — Aer demo + hardware snippet (skips cleanly without token)
-- `.env.example` — token template
+This project is developed for the University of Ottawa's Qiskit Fall Fest 2026.
