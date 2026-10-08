@@ -1,0 +1,46 @@
+<html><head><meta charset='utf-8'><style>
+@page{size:Letter;margin:0.45in 0.55in}
+body{font-family:Helvetica,Arial,sans-serif;font-size:9.8pt;line-height:1.32;color:#1a1a1a;margin:0}
+h1{font-size:16pt;margin:0 0 1px;color:#0f2a4a}
+.sub{color:#555;font-size:9pt;margin-bottom:6px;border-bottom:1.5px solid #0f2a4a;padding-bottom:3px}
+h2{font-size:10.8pt;margin:6px 0 2px;color:#0f2a4a}
+p{margin:2px 0} ul,ol{margin:2px 0 2px 15px;padding:0} li{margin:0}
+table{border-collapse:collapse;width:100%;font-size:9pt;margin:3px 0}
+th,td{border:1px solid #b9c4d2;padding:2px 4px;text-align:left;vertical-align:top}
+th{background:#e6edf5}
+</style></head><body>
+<h1>Simulación Cuántica de Materiales Adaptada al Hardware en IBM Quantum</h1>
+<div class="sub">Propuesta de proyecto · UOttawa Qiskit Fall Fest 26 · desarrollo en 3–4 días</div>
+<h2>Objetivo</h2>
+<p>Mejorar las limitaciones documentadas de nuestro proyecto anterior en Quantinuum (modelo de Ising con campo transversal 1D y Fermi–Hubbard 2D; diagonalización exacta, Trotter, VQE, ZNE, detección de errores Iceberg). Construimos un flujo de simulación y mitigación de errores adaptado al hardware de IBM Quantum y comprobamos si es más preciso y eficiente que el enfoque previo.</p>
+<h2>Por qué Iceberg en heavy-hex no es nuestra vía principal</h2>
+<ul>
+<li>Cada puerta lógica usa un qubit «hub» (X̄ᵢ = X<sub>t</sub>Xᵢ, Z̄ᵢ = Z<sub>b</sub>Zᵢ) y los dos ancillas de síndrome deben alcanzar todos los qubits de datos: un grafo en estrella. Los qubits de heavy-hex tienen como máximo 3 vecinos, así que cada paso de Trotter requiere redes de SWAP de profundidad O(k).</li>
+<li>El código tiene distancia 2 y un SWAP defectuoso es un error correlacionado de dos qubits, por lo que los SWAP generan errores que el código no puede detectar.</li>
+<li>La ventaja de Iceberg depende de conectividad total y puertas MS nativas (iones atrapados); incluso así, el informe previo observó descartes del 47–95 %.</li>
+</ul>
+<p><b>Decisión:</b> usar detección y mitigación nativas en el hardware de IBM; ejecutar Iceberg solo como estudio simulado de costo-beneficio (todos-con-todos vs heavy-hex).</p>
+<h2>Enfoque: limitación → solución → evidencia</h2>
+<table><tr><th>Limitación previa</th><th>Solución prevista (IBM / Qiskit)</th><th>Evidencia de mejora</th></tr>
+<tr><td>Descarte de Iceberg 47–95 %</td><td>Postselección por simetría sin ancillas (número de partículas en Hubbard, paridad en TFIM)</td><td>Tasa de descarte y error vs informe</td></tr>
+<tr><td>ZNE sobrecorrige tras t ≈ 1.5</td><td>Runtime Estimator: Pauli twirling, desacoplamiento dinámico, lectura TREX, ZNE con extrapolación exponencial</td><td>Error vs tiempo frente a ZNE lineal de 3 puntos</td></tr>
+<tr><td>Error de Trotter en h/J = 2 (8.46 % con Δt = 0.05)</td><td>Fórmulas multiproducto (qiskit-addon-mpf)</td><td>&lt;5 % en h/J = 2 sin circuitos más profundos</td></tr>
+<tr><td>Límites de profundidad y de puertas</td><td>Puertas RZZ nativas, capas coloreadas por aristas, anillo de 12 qubits mapeado de forma nativa en heavy-hex</td><td>Tablas de puertas de 2 qubits y profundidad</td></tr>
+<tr><td>Costo-beneficio Iceberg + ZNE pendiente</td><td>Aer con ruido tipo Heron; Iceberg transpilado a todos-con-todos vs heavy-hex</td><td>Gráfica de sobrecosto de SWAP y profundidad de equilibrio</td></tr>
+<tr><td>VQE no converge</td><td>Se desprioriza; preparación adiabática + MPF (SQD opcional)</td><td>n/a</td></tr></table>
+<h2>Plan de 3–4 días</h2>
+<ol>
+<li><b>Día 1:</b> Port a Qiskit de la diagonalización exacta y los circuitos de Trotter, validado con las Tablas 1–2 del informe previo; modelo de ruido, pipeline de mitigación y código MPF.</li>
+<li><b>Día 2:</b> Estudios de simulación (extrapoladores de ZNE, MPF vs Trotter de 2.º orden, estudio de topología de Iceberg); congelar los circuitos de hardware.</li>
+<li><b>Día 3:</b> Ejecuciones por lotes en hardware para el TFIM; Hubbard 2×2 con postselección si el presupuesto lo permite.</li>
+<li><b>Día 4:</b> Gráficas, tabla comparativa con el informe previo y redacción.</li>
+</ol>
+<h2>Riesgos y verificaciones tempranas</h2>
+<ul>
+<li><b>Tiempo de QPU:</b> el Open Plan da ~10 min/mes; confirmar la asignación del hackathon y agrupar trabajos.</li>
+<li><b>Puertas fraccionarias:</b> verificar twirling/PEA con RZZ nativas; tener plan alterno con CZ/ECR.</li>
+<li><b>Hubbard 2D:</b> las cadenas de Jordan–Wigner cuestan muchos SWAP en heavy-hex; limitar a 2×2 o usar una cadena 1D.</li>
+</ul>
+<h2>Entregables</h2>
+<p>Repositorio reproducible en Qiskit, resultados de hardware y simulación, y una tabla que compare precisión, descarte y costo de circuito con los resultados previos de Quantinuum: menor error de Trotter sin circuitos más profundos, mejor mitigación que el ZNE lineal y una respuesta cuantificada sobre cuándo conviene Iceberg en heavy-hex.</p>
+</body></html>
