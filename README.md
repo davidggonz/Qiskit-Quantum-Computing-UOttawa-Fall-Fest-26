@@ -2,6 +2,8 @@
 
 **Zero-noise extrapolation of quantum magnetism on a real IBM quantum computer**
 
+**Presentation:** [UO-Qubit ZNE Results (PowerPoint)](docs/presentation/UO-Qubit_ZNE_Results.pptx)
+
 ## Team
 
 - 🇨🇷 **David Granados** (Universidad de Costa Rica): Team Leader & Physics lead
@@ -72,7 +74,7 @@ We kept the physics and changed the way it is executed and mitigated:
 
 ### 1. Exponential ZNE reduces the error 3.8–5× on real hardware
 
-![Mean error per run for raw data, linear ZNE and exponential ZNE](results/figs/readme_error_by_method.png)
+![Mean error per run for raw data, linear ZNE and exponential ZNE](reported_results/figs/readme_error_by_method.png)
 
 *Grey: no mitigation. Orange: the linear extrapolation used in the previous investigation.
 Blue: the exponential extrapolation introduced here. Lower is better.*
@@ -91,7 +93,7 @@ brings the error down to about 0.03. Linear ZNE removes only 17–26% of the err
 
 ### 2. Exponential ZNE stays accurate at long times, where linear ZNE is biased
 
-![Mz, Mx and Mzz versus time at h/J = 1 compared with the exact solution](results/figs/readme_observables_vs_time.png)
+![Mz, Mx and Mzz versus time at h/J = 1 compared with the exact solution](reported_results/figs/readme_observables_vs_time.png)
 
 *Black line: exact solution. The blue points (this work) follow it; the orange points
 (previous method) stay close to the unmitigated grey data and drift away as time grows.*
@@ -108,7 +110,7 @@ decay of the signal removes it.
 
 ### 3. The result is validated and cheap
 
-![Run-to-run reproducibility and chi-squared fit tests](results/figs/readme_validation.png)
+![Run-to-run reproducibility and chi-squared fit tests](reported_results/figs/readme_validation.png)
 
 *Left: the same circuits run a day apart land on the diagonal. Right: blue bars pass the
 χ² goodness-of-fit test, grey bars fail it.*
@@ -134,6 +136,14 @@ test at 5 of 24 points. The study uses one device, 12 spins and four time points
 quantum advantage is claimed: 12 spins are still exactly solvable, which is what lets us
 check the results.
 
+## Where the results are
+
+| Folder | What it contains |
+|---|---|
+| [`reported_results/`](reported_results/) | **The real results reported in this README and in the presentation.** The three IBM `ibm_quebec` hardware runs as JSON (raw data, every extrapolation, error bars and fit tests) and, in [`reported_results/figs/`](reported_results/figs/), every figure made from them. |
+| [`first_try_results/`](first_try_results/) | Early test runs of `hardware.py`, made while the pipeline was being built. Kept for reference; they are not part of the reported results. |
+| `results/` | Working folder: new runs of the scripts write their output here (it also keeps the Trotter-step table `table2_trotter.json`). |
+
 ## Repository
 
 | Path | Contents |
@@ -143,13 +153,14 @@ check the results.
 | `experiments/zne_time_sweep_ibm.py` | Plan, submit and analyze the IBM hardware sweeps |
 | `experiments/plot_zne_summary.py`, `experiments/plot_readme_figures.py` | Summary and README figures |
 | `docs/references/` | The previous investigation's report |
-| `results/` | Hardware data (JSON) and figures |
+| `reported_results/` | Real IBM hardware results and their figures (see above) |
+| `docs/presentation/` | The presentation |
 | `docs/RESULTS.md` | Full results write-up with references |
 
 Reproduce the analysis from the saved data, without a QPU:
 
 ```bash
-python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec_lam1-2-3-4-5.json
+python experiments/zne_time_sweep_ibm.py analyze --from-json reported_results/zne_time_sweep_ibm_h1_ibm_quebec_lam1-2-3-4-5.json
 python experiments/plot_zne_summary.py
 python experiments/plot_readme_figures.py
 ```

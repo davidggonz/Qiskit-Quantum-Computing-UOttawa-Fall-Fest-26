@@ -1,6 +1,6 @@
 # Results: zero-noise extrapolation of TFIM dynamics on IBM hardware
 
-*Draft for the final write-up (David). Numbers come from `results/zne_time_sweep_ibm_*.json`;
+*Draft for the final write-up (David). Numbers come from `reported_results/zne_time_sweep_ibm_*.json`;
 figures from `experiments/plot_zne_summary.py`. References in [brackets] are listed at the end.*
 
 ## Summary
@@ -13,7 +13,7 @@ and 2). Linear ZNE, the method of the previous project [1], removed only 17–26
 (0.10–0.12) and stayed 7–45σ away from exact diagonalization at t ≥ 1.5. Each sweep used
 under a minute of QPU time.
 
-![Summary](../results/figs/zne_summary.png)
+![Summary](../reported_results/figs/zne_summary.png)
 
 ## 1. Setup
 
@@ -57,7 +57,7 @@ Mean |estimate − exact| over Mz, Mx, Mzz and the four times (12 points per run
   Mz 0.517 ± 0.027 against exact 0.500, Mx 0.471 ± 0.034 against 0.494, and Mzz 0.471 ± 0.030
   against 0.506. That's in the regime where the λ = 5 circuit has 2400 two-qubit gates.
 
-![Error vs time](../results/figs/zne_summary_vs_time.png)
+![Error vs time](../reported_results/figs/zne_summary_vs_time.png)
 
 ## 3. Is the exponential model justified? Fit diagnostics
 
@@ -138,7 +138,7 @@ by an extrapolator that does not.
 python experiments/zne_time_sweep_ibm.py plan --backend ibm_quebec
 python experiments/zne_time_sweep_ibm.py submit --backend ibm_quebec [--h 2.0] [--lambdas 1,3,5]
 python experiments/zne_time_sweep_ibm.py analyze --job-id <id> [--subset 1,3,5]
-python experiments/zne_time_sweep_ibm.py analyze --from-json results/<file>.json   # no QPU needed
+python experiments/zne_time_sweep_ibm.py analyze --from-json reported_results/<file>.json   # no QPU needed
 python experiments/plot_zne_summary.py
 ```
 

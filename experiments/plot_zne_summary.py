@@ -1,6 +1,6 @@
 """Summary figures for the IBM hardware ZNE sweeps (results section + slides).
 
-Reads the analyzed hardware runs in results/ and writes to results/figs/:
+Reads the analyzed hardware runs in reported_results/ and writes to reported_results/figs/:
   zne_summary.png           3 panels: (a) mean error per method and run,
                             (b) h/J = 1 error vs time, (c) h/J = 2 error vs time
   zne_summary_methods.png   panel (a) alone, slide-sized
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RES, FIGS = ROOT / "results", ROOT / "results" / "figs"
+RES, FIGS = ROOT / "reported_results", ROOT / "reported_results" / "figs"
 KEYS = ["Mz", "Mx", "Mzz"]
 
 RUNS = [  # (file, label, marker)

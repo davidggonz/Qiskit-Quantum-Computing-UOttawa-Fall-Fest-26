@@ -25,7 +25,7 @@ Examples:
   python experiments/zne_time_sweep_ibm.py submit --backend ibm_fez
   python experiments/zne_time_sweep_ibm.py submit --backend ibm_fez --lambdas 1,3,5   # the original 3-factor run
   python experiments/zne_time_sweep_ibm.py analyze --job-id <id>
-  python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec.json
+  python experiments/zne_time_sweep_ibm.py analyze --from-json reported_results/zne_time_sweep_ibm_h1_ibm_quebec.json
   python experiments/zne_time_sweep_ibm.py submit --fake      # local test, no token, no QPU
 """
 import argparse

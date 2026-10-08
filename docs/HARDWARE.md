@@ -64,7 +64,7 @@ The pipeline saves results to the root folder:
 
 | Accuracy vs Optimization Level | Depth vs Optimization Level | Error Mitigation (ZNE) |
 | :---: | :---: | :---: |
-| ![Accuracy](../accuracy_vs_level.png) | ![Depth](../depth_vs_level.png) | ![ZNE](../error_vs_mitigation.png) |
+| ![Accuracy](../first_try_results/root_run/accuracy_vs_level.png) | ![Depth](../first_try_results/root_run/depth_vs_level.png) | ![ZNE](../first_try_results/root_run/error_vs_mitigation.png) |
 
 **N=6, periodic ring, 2nd-order Trotter, fake-backend ibm_marrakesh.**
 

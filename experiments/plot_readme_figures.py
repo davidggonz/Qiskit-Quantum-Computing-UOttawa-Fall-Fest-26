@@ -1,6 +1,6 @@
 """Figures for the README results section, built from the saved IBM hardware runs.
 
-Writes to results/figs/:
+Writes to reported_results/figs/:
   readme_error_by_method.png   mean error per run: raw vs linear ZNE vs exponential ZNE
   readme_observables_vs_time.png   Mz, Mx, Mzz vs time at h/J = 1 against the exact curve
   readme_validation.png        run-to-run reproducibility and chi-squared fit tests
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RES, FIGS = ROOT / "results", ROOT / "results" / "figs"
+RES, FIGS = ROOT / "reported_results", ROOT / "reported_results" / "figs"
 KEYS = ["Mz", "Mx", "Mzz"]
 RUNS = [  # (file, label)
     ("zne_time_sweep_ibm_h1_ibm_quebec.json", "h/J = 1, run 1"),
