@@ -8,19 +8,18 @@
 - 🇲🇦 **Boutaina El Hourri** (ENSA Khouribga): Hardware lead
 - 🇱🇧 **Toufic Haddad** (University of Ottawa): Noise models and Plots
 - 🇨🇦 **Eli Levasseur** (University of Ottawa): Iceberg Circuit Simulation
-- 🇲🇺 **Harshini Gungah**: Classical baseline & Numerics
+- 🇲🇺 **Harshini Gungah** (University of Mauritius): Classical baseline & Numerics
 
 ## Introduction and objective
 
 Designing better energy materials, such as superconductors for efficient power grids,
 battery materials and CO₂-capture catalysts, depends on predicting how many interacting
 spins and electrons behave. Classical computers hit a wall quickly: in the previous
-challenge, exact diagonalization took 0.004 s for 4 spins and 17.5 s for 12, and was no
-longer feasible beyond that. Quantum computers are the natural tool for this problem,
-but only if their noise can be controlled.
+investigations, exact diagonalization took 0.004 s for 4 spins and 17.5 s for 12, and was
+no longer feasible beyond that. Quantum computers are a next natural step.
 
-This project builds on the Quantathon CR 2026 Challenge 3 report, *Simulation of
-Materials for Next-Generation Energy Devices*. That work used the one-dimensional
+This project builds on the [*Simulation of Materials for Next-Generation Energy Devices*](docs/references/Simulation_of_Materials_for_Next-Generation_Energy_Devices.pdf).
+That work used the one-dimensional
 transverse-field Ising model (TFIM) as the canonical testbed for magnetic materials:
 
 $$H = -J\sum_i Z_i Z_{i+1} - h\sum_i X_i$$
@@ -71,9 +70,12 @@ We kept the physics and changed the way it is executed and mitigated:
 
 ## Key results
 
-![Summary of the IBM hardware runs](results/figs/zne_summary.png)
-
 ### 1. Exponential ZNE reduces the error 3.8–5× on real hardware
+
+![Mean error per run for raw data, linear ZNE and exponential ZNE](results/figs/readme_error_by_method.png)
+
+*Grey: no mitigation. Orange: the linear extrapolation used in the previous investigation.
+Blue: the exponential extrapolation introduced here. Lower is better.*
 
 Mean |estimate − exact| over Mz, Mx and Mzz at t = 0.5, 1.0, 1.5 and 2.0 (12 points per run):
 
@@ -89,6 +91,11 @@ brings the error down to about 0.03. Linear ZNE removes only 17–26% of the err
 
 ### 2. Exponential ZNE stays accurate at long times, where linear ZNE is biased
 
+![Mz, Mx and Mzz versus time at h/J = 1 compared with the exact solution](results/figs/readme_observables_vs_time.png)
+
+*Black line: exact solution. The blue points (this work) follow it; the orange points
+(previous method) stay close to the unmitigated grey data and drift away as time grows.*
+
 At h/J = 1, the error of linear ZNE grows with time like the raw data, from 0.034 to 0.195.
 Exponential ZNE stays between 0.021 and 0.042 through t = 2, where the most amplified
 circuit has 2400 two-qubit gates. For example, at t = 2 it gives Mz = 0.517 ± 0.027
@@ -101,10 +108,15 @@ decay of the signal removes it.
 
 ### 3. The result is validated and cheap
 
+![Run-to-run reproducibility and chi-squared fit tests](results/figs/readme_validation.png)
+
+*Left: the same circuits run a day apart land on the diagonal. Right: blue bars pass the
+χ² goodness-of-fit test, grey bars fail it.*
+
 - **Reproducible:** two runs a day apart both give 0.03. Raw values drift by 0.002–0.016
   between runs, which we report as an extra ±0.01 uncertainty.
-- **The model fits:** with five noise levels, the exponential fit passes a χ² test
-  (χ²/dof ≤ 2.7) at 19 of 24 points.
+- **The model fits:** with five noise levels, the exponential fit passes a χ² test at the
+  5% significance level (χ²/dof < 3.0 for 2 degrees of freedom) at 19 of 24 points.
 - **The residual is hardware noise:** at h/J = 2 the noiseless Trotter circuit is within
   0.011 of exact diagonalization, so discretization is not the limiting factor.
 - **Low cost:** each full sweep used 39–58 s of QPU time.
@@ -129,7 +141,8 @@ check the results.
 | `hardware.py` | Backend selection, layout search, folding, Runtime execution ([guide](docs/HARDWARE.md)) |
 | `src/qfest/` | TFIM circuits and exact diagonalization |
 | `experiments/zne_time_sweep_ibm.py` | Plan, submit and analyze the IBM hardware sweeps |
-| `experiments/plot_zne_summary.py` | Summary figures |
+| `experiments/plot_zne_summary.py`, `experiments/plot_readme_figures.py` | Summary and README figures |
+| `docs/references/` | The previous investigation's report |
 | `results/` | Hardware data (JSON) and figures |
 | `docs/RESULTS.md` | Full results write-up with references |
 
@@ -138,6 +151,7 @@ Reproduce the analysis from the saved data, without a QPU:
 ```bash
 python experiments/zne_time_sweep_ibm.py analyze --from-json results/zne_time_sweep_ibm_h1_ibm_quebec_lam1-2-3-4-5.json
 python experiments/plot_zne_summary.py
+python experiments/plot_readme_figures.py
 ```
 
 This project is developed for the University of Ottawa's Qiskit Fall Fest 2026.
